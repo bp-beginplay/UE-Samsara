@@ -1,0 +1,7 @@
+﻿<Project>
+  <!-- UE project IncludePath (~32K chars) overflows the 32,767 env var limit when VS's SetEnv task prepends its own paths.
+       UBT (NMake) does not use IncludePath for compiling, so clear it for real builds only; IntelliSense (design-time) keeps it. -->
+  <PropertyGroup Condition="'$(DesignTimeBuild)' != 'true'">
+    <IncludePath></IncludePath>
+  </PropertyGroup>
+</Project>

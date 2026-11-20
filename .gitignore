@@ -1,0 +1,24 @@
+# 빌드·캐시 (언제든 다시 생성됨)
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# Visual Studio
+.vs/
+*.sln
+*.slnx
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# 마켓플레이스 에셋 (Fab에서 따로 받음)
+Content/Resource/
+
+# 비어 있는 개인 폴더
+Content/Developers/
+Content/Collections/
