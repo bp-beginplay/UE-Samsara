@@ -49,7 +49,9 @@ protected:
 private:
 	void MoveCamera(const FInputActionValue& Value);
 	void CompleteLMB();
-	void TriggerSB();
+	void StartedSB();
+	void StartedA();
+	void StartedS();
 
 	UFUNCTION(Reliable, Client)
 	void ClientInitCharacter();

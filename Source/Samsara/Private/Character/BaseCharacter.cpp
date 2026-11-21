@@ -37,7 +37,6 @@ ABaseCharacter::ABaseCharacter()
 	Camera->bUsePawnControlRotation = false;
 
 	MoveComponent = CreateDefaultSubobject<UMoveComponent>(TEXT("MoveComponent"));
-	MoveComponent->SetupAttachment(GetRootComponent());
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -78,13 +77,13 @@ void ABaseCharacter::PawnClientRestart()
 	SpringArm->TargetOffset = FVector::ZeroVector;
 	CameraLocation = FVector::ZeroVector;
 
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = this;
-	SkillRange = GetWorld()->SpawnActor<ASkillRange>(MoveRangeClass, GetActorTransform(), SpawnParams);
+	//FActorSpawnParameters SpawnParams;
+	//SpawnParams.Owner = this;
+	//SkillRange = GetWorld()->SpawnActor<ASkillRange>(MoveRangeClass, GetActorTransform(), SpawnParams);
 
-	MoveComponent->Active();
+	//MoveComponent->Active();
 
-	RangeComponent->Active();
+	//RangeComponent->Active();
 }
 
 void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -94,10 +93,12 @@ void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	DA_ArhatInput->AddMappingArhat(GetController());
 	if (UEnhancedInputComponent* Input = CastChecked<UEnhancedInputComponent>(InputComponent))
 	{
-		EBindInput::Triggered(Input, DA_ArhatInput->IA_ArhatWASD, this, &ABaseCharacter::MoveCamera);
+		//EBindInput::Triggered(Input, DA_ArhatInput->IA_ArhatWASD, this, &ABaseCharacter::MoveCamera);
 		EBindInput::Triggered(Input, DA_ArhatInput->IA_ArhatMouxeXY, this, &ABaseCharacter::MoveCamera);
 		EBindInput::Complete(Input, DA_ArhatInput->IA_ArhatLMB, this, &ABaseCharacter::CompleteLMB);
-		EBindInput::Started(Input, DA_ArhatInput->IA_ArhatSB, this, &ABaseCharacter::TriggerSB);
+		EBindInput::Started(Input, DA_ArhatInput->IA_ArhatSB, this, &ABaseCharacter::StartedSB);
+		EBindInput::Started(Input, DA_ArhatInput->IA_ArhatA, this, &ABaseCharacter::StartedA);
+		EBindInput::Started(Input, DA_ArhatInput->IA_ArhatS, this, &ABaseCharacter::StartedS);
 	}
 }
 
@@ -115,7 +116,7 @@ void ABaseCharacter::BeginPlay()
 
 void ABaseCharacter::ClientInitCharacter_Implementation()
 {
-	SkillRange->Destroy();
+	//SkillRange->Destroy();
 	MoveComponent->DeActive();
 	RangeComponent->DeActive();
 }
@@ -138,7 +139,7 @@ void ABaseCharacter::CompleteLMB()
 	}
 }
 
-void ABaseCharacter::TriggerSB()
+void ABaseCharacter::StartedSB()
 {
 	if (MoveComponent->Move())
 	{
@@ -149,4 +150,13 @@ void ABaseCharacter::TriggerSB()
 	{
 		LOG_TEXT("Fail Move")
 	}
+}
+
+void ABaseCharacter::StartedA()
+{
+}
+
+void ABaseCharacter::StartedS()
+{
+	MoveComponent->Active();
 }

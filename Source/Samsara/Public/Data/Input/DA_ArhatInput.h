@@ -31,4 +31,8 @@ public:
 	UInputAction* IA_ArhatLMB;
 	UPROPERTY(EditDefaultsOnly)
 	UInputAction* IA_ArhatSB;
+	UPROPERTY(EditDefaultsOnly)
+	UInputAction* IA_ArhatA;
+	UPROPERTY(EditDefaultsOnly)
+	UInputAction* IA_ArhatS;
 };
