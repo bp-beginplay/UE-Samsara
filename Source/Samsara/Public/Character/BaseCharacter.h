@@ -18,6 +18,7 @@ struct FInputActionInstance;
 class ASkillRange;
 class UMoveComponent;
 class URangeComponent;
+class UNavPathComponent;
 
 USTRUCT()
 struct FArhatIcons
@@ -91,6 +92,10 @@ private:
 	/** 사거리 표시와 사거리 안의 적 연결 이펙트를 담당한다. */
 	UPROPERTY(VisibleAnywhere, Category = "Range")
 	TObjectPtr<URangeComponent> RangeComponent;
+
+
+	UPROPERTY(VisibleAnywhere, Category = "Range")
+	TObjectPtr<UNavPathComponent> NavPathComponent;
 
 	// Get/Set 함수
 public:

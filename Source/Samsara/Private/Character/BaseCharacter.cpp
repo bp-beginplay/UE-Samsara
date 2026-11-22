@@ -15,6 +15,7 @@
 #include "PlayerController/PvPPlayerController.h"
 #include "Component/MoveComponent.h"
 #include "Component/RangeComponent.h"
+#include "Component/NavPathComponent.h"
 
 #include "LogTest.h"
 
@@ -50,6 +51,8 @@ ABaseCharacter::ABaseCharacter()
 
 	RangeComponent = CreateDefaultSubobject<URangeComponent>(TEXT("RangeComponent"));
 	RangeComponent->SetupAttachment(RootComponent);
+
+	NavPathComponent = CreateDefaultSubobject<UNavPathComponent>(TEXT("NavPathComponent"));
 
 	//SpringArm->SocketOffset = FVector(0.f, 60.f, 70.f);
 	//SpringArm->TargetArmLength = 500.f;
@@ -119,6 +122,7 @@ void ABaseCharacter::ClientInitCharacter_Implementation()
 	//SkillRange->Destroy();
 	MoveComponent->DeActive();
 	RangeComponent->DeActive();
+	NavPathComponent->DeActive();
 }
 
 void ABaseCharacter::MoveCamera(const FInputActionValue& Value)
@@ -158,5 +162,6 @@ void ABaseCharacter::StartedA()
 
 void ABaseCharacter::StartedS()
 {
-	MoveComponent->Active();
+	//MoveComponent->Active();
+	NavPathComponent->Active();
 }
