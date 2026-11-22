@@ -10,9 +10,10 @@
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
 
-#include "PlayerController/BasePlayerController.h"
+#include "PlayerController/PvPPlayerController.h"
 #include "Character/BaseCharacter.h"
 #include "LogTest.h"
+#include "Actor/GhostActor.h"
 
 UNavPathComponent::UNavPathComponent()
 {
@@ -25,11 +26,12 @@ void UNavPathComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	ABaseCharacter* BaseCharacter = GetOwner<ABaseCharacter>();
-	ABasePlayerController* PC = Cast<ABasePlayerController>(BaseCharacter->GetController());
+	APvPPlayerController* PC = Cast<APvPPlayerController>(BaseCharacter->GetController());
 
 	if (PC && PC->IsLocalController())
 	{
 		const FHitResult Hit = PC->GetUnderCursorHit();
+		GhostActor->SetActorLocation(Hit.Location);
 		UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
 			this, BaseCharacter->GetActorLocation(), Hit.Location, BaseCharacter);
 		PathPoints = Path->PathPoints;
@@ -67,6 +69,13 @@ void UNavPathComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 void UNavPathComponent::Active()
 {
 	SetComponentTickEnabled(true);
+	ABaseCharacter* Character = Cast<ABaseCharacter>(GetOwner());
+	APvPPlayerController* PC = Cast<APvPPlayerController>(Character->GetController());
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = PC;
+	SpawnParams.Instigator = Character;
+	GhostActor = GetWorld()->SpawnActor<AGhostActor>(GhostActorClass, SpawnParams);
+	GhostActor->CopyMeshFrom(Character->GetMesh());
 }
 
 void UNavPathComponent::DeActive()

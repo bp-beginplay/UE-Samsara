@@ -40,6 +40,7 @@ void URouteComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 void URouteComponent::Active()
 {
 	SetComponentTickEnabled(true);
+
 }
 
 void URouteComponent::DeActive()

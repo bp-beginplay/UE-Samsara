@@ -8,6 +8,7 @@
 
 class UNiagaraSystem;
 class UNiagaraComponent;
+class AGhostActor;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAMSARA_API UNavPathComponent : public UActorComponent
@@ -36,6 +37,10 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UNiagaraComponent>> PathEffects;
 	TArray<FVector> PathPoints;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AGhostActor> GhostActorClass;
+	AGhostActor* GhostActor;
 
 	// Get/Set 함수
 public:
