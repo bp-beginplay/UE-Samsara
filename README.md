@@ -17,3 +17,7 @@
 
 1. 이동경로를 spline으로 표시하지 않고 effect로 표시하기 위해 NavPathComponent를 만들었다.
 
+20261125
+
+1\.	RangeComponent에서 범위내에 모든 캐릭터를 이어주는 이펙트 생성
+

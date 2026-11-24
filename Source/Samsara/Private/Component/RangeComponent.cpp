@@ -7,16 +7,14 @@
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
 
-#include "Interface/TeamInterface.h"
+#include "LogTest.h"
+#include "Character/BaseCharacter.h"
 
 URangeComponent::URangeComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = true;
 
-	// Config/DefaultEngine.ini에 정의한 "Range" 프리셋.
-	// 오브젝트 타입은 Range, Pawn만 Overlap, 나머지는 모두 Ignore, 기본 상태는 NoCollision이다.
-	// 프리셋에 NoCollision이 들어 있으므로 SetCollisionEnabled를 따로 부르지 않는다.
-	// (프리셋 적용 뒤에 콜리전 설정을 바꾸면 프리셋 이름이 Custom으로 바뀐다.)
 	SetCollisionProfileName(TEXT("Range"));
 }
 
@@ -24,34 +22,24 @@ void URangeComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 블루프린트에서 콜리전을 바꿔 두었더라도 게임에서는 항상 Range 프리셋을 쓴다.
-	//SetCollisionProfileName(TEXT("Range"));
-
 	OnComponentBeginOverlap.AddDynamic(this, &URangeComponent::BeginOverlap);
+	OnComponentEndOverlap.AddDynamic(this, &URangeComponent::EndOverlap);
 }
 
-void URangeComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void URangeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
-	// 연결 이펙트는 SpawnSystemAtLocation으로 월드에 따로 만들어져 소유 액터와 함께 파괴되지 않는다.
-	// 고스트처럼 소유 액터가 Destroy될 때 빔이 남지 않도록 여기서 지운다.
-	ClearTargetLinkEffects();
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	Super::EndPlay(EndPlayReason);
-}
+	if (Arhats.IsEmpty())
+		return;
 
-const ITeamInterface* URangeComponent::GetTeamSource() const
-{
 	const AActor* Owner = GetOwner();
-	if (!Owner)
+	for (int i = 0; i < Arhats.Num(); i++)
 	{
-		return nullptr;
+		TargetLinkEffects[i]->SetVariableVec3(TEXT("BeamStart"), Owner->GetActorLocation());
+		TargetLinkEffects[i]->SetVariableVec3(TEXT("BeamEnd"), Arhats[i]->GetActorLocation());
+		TargetLinkEffects[i]->Activate();
 	}
-
-	if (const ITeamInterface* InstigatorTeam = Cast<ITeamInterface>(Owner->GetInstigator()))
-	{
-		return InstigatorTeam;
-	}
-	return Cast<ITeamInterface>(Owner);
 }
 
 void URangeComponent::Active()
@@ -68,10 +56,26 @@ void URangeComponent::DeActive()
 
 void URangeComponent::BeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	const ITeamInterface* Team = GetTeamSource();
-	if (Team && Team->IsEnemy(OtherActor))
+	const AActor* Owner = GetOwner();
+	if (ABaseCharacter* BaseCharacter = Cast<ABaseCharacter>(OtherActor))
 	{
-		SpawnTargetLinkEffect(OtherActor);
+		Arhats.AddUnique(BaseCharacter);
+		UNiagaraComponent* Effect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			this, TargetLinkEffect, Owner->GetActorLocation(), FRotator::ZeroRotator, FVector(1.f), false, false);
+		TargetLinkEffects.AddUnique(Effect);
+	}
+}
+
+void URangeComponent::EndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (ABaseCharacter* BaseCharacter = Cast<ABaseCharacter>(OtherActor))
+	{
+		Arhats.Remove(BaseCharacter);
+		UNiagaraComponent* Effect = TargetLinkEffects.Pop();
+		if (IsValid(Effect))
+		{
+			Effect->DestroyComponent();
+		}
 	}
 }
 

@@ -19,6 +19,7 @@ class ASkillRange;
 class UMoveComponent;
 class URangeComponent;
 class UNavPathComponent;
+class UNavMoveComponent;
 
 USTRUCT()
 struct FArhatIcons
@@ -96,6 +97,8 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Range")
 	TObjectPtr<UNavPathComponent> NavPathComponent;
+	UPROPERTY(VisibleAnywhere, Category = "Move")
+	TObjectPtr<UNavMoveComponent> NavMoveComponent;
 
 	// Get/Set 함수
 public:

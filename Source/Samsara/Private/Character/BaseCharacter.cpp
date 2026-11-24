@@ -16,6 +16,7 @@
 #include "Component/MoveComponent.h"
 #include "Component/RangeComponent.h"
 #include "Component/NavPathComponent.h"
+#include "Component/NavMoveComponent.h"
 
 #include "LogTest.h"
 
@@ -53,6 +54,9 @@ ABaseCharacter::ABaseCharacter()
 	RangeComponent->SetupAttachment(RootComponent);
 
 	NavPathComponent = CreateDefaultSubobject<UNavPathComponent>(TEXT("NavPathComponent"));
+	NavMoveComponent = CreateDefaultSubobject<UNavMoveComponent>(TEXT("NavMoveComponent"));
+	// NavMoveComponent가 같은 캐릭터의 NavPathComponent를 쓰도록 연결한다.
+	NavMoveComponent->SetNavPathComponent(NavPathComponent);
 
 	//SpringArm->SocketOffset = FVector(0.f, 60.f, 70.f);
 	//SpringArm->TargetArmLength = 500.f;
