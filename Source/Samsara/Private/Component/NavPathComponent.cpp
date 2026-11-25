@@ -31,36 +31,63 @@ void UNavPathComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	if (PC && PC->IsLocalController())
 	{
 		const FHitResult Hit = PC->GetUnderCursorHit();
-		GhostActor->SetActorLocation(Hit.Location);
+
 		UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
 			this, BaseCharacter->GetActorLocation(), Hit.Location, BaseCharacter);
 		PathPoints = Path->PathPoints;
 
-		const int32 NumSegments = FMath::Max(PathPoints.Num() - 1, 0);
+		if (PathPoints.IsEmpty())
+		{
+			if (IsValid(GhostActor))
+				GhostActor->Destroy();
 
-		while (PathEffects.Num() < NumSegments)
-		{
-			UNiagaraComponent* Effect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-				this, PathEffect, PathPoints[PathEffects.Num()], FRotator::ZeroRotator, FVector(1.f), false, true);
-			PathEffects.Add(Effect);
-		}
-		while (PathEffects.Num() > NumSegments)
-		{
-			UNiagaraComponent* Effect = PathEffects.Pop();
-			if (IsValid(Effect))
+			while (!PathEffects.IsEmpty())
 			{
-				Effect->DestroyComponent();
+				UNiagaraComponent* Effect = PathEffects.Pop();
+				if (IsValid(Effect))
+				{
+					Effect->DestroyComponent();
+				}
 			}
 		}
-
-		const FVector Offset(0.f, 0.f, 10.f);
-		for (int32 i = 0; i < PathEffects.Num(); ++i)
+		else
 		{
-			UNiagaraComponent* Effect = PathEffects[i];
-			if (IsValid(Effect))
+			if (!IsValid(GhostActor))
 			{
-				Effect->SetVariableVec3(TEXT("BeamStart"), PathPoints[i] + Offset);
-				Effect->SetVariableVec3(TEXT("BeamEnd"), PathPoints[i + 1] + Offset);
+				FActorSpawnParameters SpawnParams;
+				SpawnParams.Owner = PC;
+				SpawnParams.Instigator = BaseCharacter;
+				GhostActor = GetWorld()->SpawnActor<AGhostActor>(GhostActorClass, SpawnParams);
+				GhostActor->CopyMeshFrom(BaseCharacter->GetMesh());
+			}
+			GhostActor->SetActorLocation(PathPoints.Last());
+
+			const int32 NumSegments = FMath::Max(PathPoints.Num() - 1, 0);
+
+			while (PathEffects.Num() < NumSegments)
+			{
+				UNiagaraComponent* Effect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+					this, PathEffect, PathPoints[PathEffects.Num()], FRotator::ZeroRotator, FVector(1.f), false, true);
+				PathEffects.Add(Effect);
+			}
+			while (PathEffects.Num() > NumSegments)
+			{
+				UNiagaraComponent* Effect = PathEffects.Pop();
+				if (IsValid(Effect))
+				{
+					Effect->DestroyComponent();
+				}
+			}
+
+			const FVector Offset(0.f, 0.f, 10.f);
+			for (int32 i = 0; i < PathEffects.Num(); ++i)
+			{
+				UNiagaraComponent* Effect = PathEffects[i];
+				if (IsValid(Effect))
+				{
+					Effect->SetVariableVec3(TEXT("BeamStart"), PathPoints[i] + Offset);
+					Effect->SetVariableVec3(TEXT("BeamEnd"), PathPoints[i + 1] + Offset);
+				}
 			}
 		}
 	}
@@ -69,16 +96,16 @@ void UNavPathComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 void UNavPathComponent::Active()
 {
 	SetComponentTickEnabled(true);
-	ABaseCharacter* Character = Cast<ABaseCharacter>(GetOwner());
-	APvPPlayerController* PC = Cast<APvPPlayerController>(Character->GetController());
+	ABaseCharacter* BaseCharacter = GetOwner<ABaseCharacter>();
+	APvPPlayerController* PC = Cast<APvPPlayerController>(BaseCharacter->GetController());
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = PC;
-	SpawnParams.Instigator = Character;
+	SpawnParams.Instigator = BaseCharacter;
 	GhostActor = GetWorld()->SpawnActor<AGhostActor>(GhostActorClass, SpawnParams);
-	GhostActor->CopyMeshFrom(Character->GetMesh());
+	GhostActor->CopyMeshFrom(BaseCharacter->GetMesh());
 }
 
 void UNavPathComponent::DeActive()
 {
-
+	SetComponentTickEnabled(false);
 }

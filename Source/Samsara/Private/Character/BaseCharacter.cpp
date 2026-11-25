@@ -137,14 +137,15 @@ void ABaseCharacter::MoveCamera(const FInputActionValue& Value)
 
 void ABaseCharacter::CompleteLMB()
 {
-	if (MoveComponent->SetTarget())
-	{
-		RangeComponent->DeActive();
-	}
-	else
-	{
-		LOG_TEXT("Fail SetTarget")
-	}
+	NavMoveComponent->SetTarget();
+	//if (MoveComponent->SetTarget())
+	//{
+	//	RangeComponent->DeActive();
+	//}
+	//else
+	//{
+	//	LOG_TEXT("Fail SetTarget")
+	//}
 }
 
 void ABaseCharacter::StartedSB()
