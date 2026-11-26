@@ -9,14 +9,14 @@
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Net/UnrealNetWork.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "NavAreas/NavArea_Null.h"
 
 #include "Data/Input/DA_ArhatInput.h"
 #include "Actor/SkillRange.h"
 #include "PlayerController/PvPPlayerController.h"
-#include "Component/MoveComponent.h"
 #include "Component/RangeComponent.h"
-#include "Component/NavPathComponent.h"
-#include "Component/NavMoveComponent.h"
+#include "Component/MoveComponent.h"
 
 #include "LogTest.h"
 
@@ -38,8 +38,6 @@ ABaseCharacter::ABaseCharacter()
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
 
-	MoveComponent = CreateDefaultSubobject<UMoveComponent>(TEXT("MoveComponent"));
-
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
@@ -53,10 +51,14 @@ ABaseCharacter::ABaseCharacter()
 	RangeComponent = CreateDefaultSubobject<URangeComponent>(TEXT("RangeComponent"));
 	RangeComponent->SetupAttachment(RootComponent);
 
-	NavPathComponent = CreateDefaultSubobject<UNavPathComponent>(TEXT("NavPathComponent"));
-	NavMoveComponent = CreateDefaultSubobject<UNavMoveComponent>(TEXT("NavMoveComponent"));
-	// NavMoveComponent가 같은 캐릭터의 NavPathComponent를 쓰도록 연결한다.
-	NavMoveComponent->SetNavPathComponent(NavPathComponent);
+	MoveComponent = CreateDefaultSubobject<UMoveComponent>(TEXT("MoveComponent"));
+
+	// ACharacter는 시작할 때 캡슐의 CanEverAffectNavigation을 이 값으로 덮어쓴다. (기본 false)
+	// 이 값을 켜야 아래 캡슐 장애물 설정이 실제로 내비메시에 반영된다.
+	bCanAffectNavigationGeneration = true;
+	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
+	GetCapsuleComponent()->bDynamicObstacle = true;   // 충돌 형태 대신 "장애물 영역"으로 내비메시에 반영
+	GetCapsuleComponent()->SetAreaClassOverride(UNavArea_Null::StaticClass());
 
 	//SpringArm->SocketOffset = FVector(0.f, 60.f, 70.f);
 	//SpringArm->TargetArmLength = 500.f;
@@ -83,14 +85,6 @@ void ABaseCharacter::PawnClientRestart()
 
 	SpringArm->TargetOffset = FVector::ZeroVector;
 	CameraLocation = FVector::ZeroVector;
-
-	//FActorSpawnParameters SpawnParams;
-	//SpawnParams.Owner = this;
-	//SkillRange = GetWorld()->SpawnActor<ASkillRange>(MoveRangeClass, GetActorTransform(), SpawnParams);
-
-	//MoveComponent->Active();
-
-	//RangeComponent->Active();
 }
 
 void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -123,10 +117,7 @@ void ABaseCharacter::BeginPlay()
 
 void ABaseCharacter::ClientInitCharacter_Implementation()
 {
-	//SkillRange->Destroy();
-	MoveComponent->DeActive();
-	RangeComponent->DeActive();
-	NavPathComponent->DeActive();
+
 }
 
 void ABaseCharacter::MoveCamera(const FInputActionValue& Value)
@@ -137,27 +128,25 @@ void ABaseCharacter::MoveCamera(const FInputActionValue& Value)
 
 void ABaseCharacter::CompleteLMB()
 {
-	NavMoveComponent->SetTarget();
-	//if (MoveComponent->SetTarget())
-	//{
-	//	RangeComponent->DeActive();
-	//}
-	//else
-	//{
-	//	LOG_TEXT("Fail SetTarget")
-	//}
+	if (MoveComponent->SetTarget())
+	{
+		LOG_TEXT("Success SetTarget");
+	}
+	else
+	{
+		LOG_TEXT("Fail SetTarget")
+	}
 }
 
 void ABaseCharacter::StartedSB()
 {
-	if (MoveComponent->Move())
+	if (MoveComponent->Active())
 	{
-		LOG_TEXT("Success Move");
-		RangeComponent->DeActive();
+		LOG_TEXT("Success Active");
 	}
 	else
 	{
-		LOG_TEXT("Fail Move")
+		LOG_TEXT("Fail Active")
 	}
 }
 
@@ -167,6 +156,5 @@ void ABaseCharacter::StartedA()
 
 void ABaseCharacter::StartedS()
 {
-	//MoveComponent->Active();
-	NavPathComponent->Active();
+	MoveComponent->StartSetTarget();
 }

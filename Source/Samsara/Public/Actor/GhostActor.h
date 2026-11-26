@@ -35,7 +35,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Ghost")
 	TObjectPtr<UMaterialInterface> GhostMaterial;
 
-	/** 고스트 위치를 중심으로 한 공격·스킬 사거리. 스폰되면 바로 켜진다. */
 	UPROPERTY(VisibleAnywhere, Category = "Range")
 	TObjectPtr<URangeComponent> RangeComponent;
 

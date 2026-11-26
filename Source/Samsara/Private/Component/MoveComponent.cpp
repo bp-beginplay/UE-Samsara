@@ -3,108 +3,189 @@
 
 #include "Component/MoveComponent.h"
 
-#include "Components/SplineMeshComponent.h"
-#include "Engine/StaticMesh.h"
 #include "GameFramework/Pawn.h"
-#include "GameFramework/PawnMovementComponent.h"
-#include "Materials/MaterialInterface.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
-#include "UObject/ConstructorHelpers.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 
-#include "Character/BaseCharacter.h"
 #include "PlayerController/PvPPlayerController.h"
-#include "Component/RouteComponent.h"
+#include "Character/BaseCharacter.h"
 #include "LogTest.h"
 #include "Actor/GhostActor.h"
 
-void UMoveComponent::BeginPlay()
+UMoveComponent::UMoveComponent()
 {
-	Super::BeginPlay();
-
-	RouteComponent = NewObject<URouteComponent>(GetOwner());
-	RouteComponent->SetupAttachment(this);
-	RouteComponent->RegisterComponent();
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
 void UMoveComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	APawn* Pawn = Cast<APawn>(GetOwner());
-	UpdateAutoMove(DeltaTime, Pawn);
+	OnTickFunc.ExecuteIfBound();
 }
 
-void UMoveComponent::Active()
+void UMoveComponent::StartSetTarget()
 {
-	RouteComponent->Active();
-}
-
-void UMoveComponent::DeActive()
-{
-	RouteComponent->DeActive();
-	SetComponentTickEnabled(false);
-	if (IsValid(GhostActor))
-		GhostActor->Destroy();
-	HidePathVisual();
-	ClearSplinePoints(true);
+	if (ABaseCharacter* Character = GetOwner<ABaseCharacter>())
+		Character->GetCapsuleComponent()->SetCanEverAffectNavigation(false);
+	SetComponentTickEnabled(true);
+	OnTickFunc.BindUObject(this, &UMoveComponent::UpdateMovePreview);
 }
 
 bool UMoveComponent::SetTarget()
 {
-	if (!RouteComponent->GetSetTarget())
+	if (IsValid(GhostActor))
+	{
+		SetComponentTickEnabled(false);
+		OnTickFunc.Unbind();
+		bCanMove = true;
+		return true;
+	}
+	else
+	{
 		return false;
-	
-	FVector TargetLocation = RouteComponent->GetTargetLocation();
+	}
+}
 
+bool UMoveComponent::Active()
+{
+	if (bCanMove)
+	{
+		DestroyGhostActor();
+		SetComponentTickEnabled(true);
+		CurrentPointIndex = 1;
+		OnTickFunc.BindUObject(this, &UMoveComponent::Move);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+
+}
+
+void UMoveComponent::Move()
+{
+	APawn* Pawn = GetOwner<APawn>();
+	const FVector PawnLocation = Pawn->GetActorLocation();
+	const FVector Target = PathPoints[CurrentPointIndex];
+	if (FVector::Dist2D(PawnLocation, Target) <= AcceptanceRadius)
+	{
+		++CurrentPointIndex;
+		if (CurrentPointIndex >= PathPoints.Num())
+		{
+			FinishMove();
+			return;
+		}
+	}
+
+	const FVector Direction = (PathPoints[CurrentPointIndex] - PawnLocation).GetSafeNormal2D();
+	Pawn->AddMovementInput(Direction);
+}
+
+void UMoveComponent::FinishMove()
+{
+	SetComponentTickEnabled(false);
+	OnTickFunc.Unbind();
+	bCanMove = false;
+	DestroyPathEffects();
+	PathPoints.Empty();
+	CurrentPointIndex = 0;
+	if (ABaseCharacter* Character = GetOwner<ABaseCharacter>())
+		Character->GetCapsuleComponent()->SetCanEverAffectNavigation(true);
+}
+
+void UMoveComponent::UpdateMovePreview()
+{
+	ABaseCharacter* BaseCharacter = GetOwner<ABaseCharacter>();
+	APvPPlayerController* PC = Cast<APvPPlayerController>(BaseCharacter->GetController());
+	if (!(PC && PC->IsLocalController()))
+		return;
+	
+	const FHitResult Hit = PC->GetUnderCursorHit();
+	UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
+		this, BaseCharacter->GetActorLocation(), Hit.Location, BaseCharacter);
+	PathPoints = Path->PathPoints;
+
+	if (PathPoints.IsEmpty())
+	{
+		DestroyGhostActor();
+		DestroyPathEffects();
+	}
+	else
+	{
+		float Length = 0.f;
+		for (int32 i = 1; i < PathPoints.Num(); ++i)
+		{
+			Length += FVector::Dist(PathPoints[i - 1], PathPoints[i]);
+		}
+		if (Length > BaseCharacter->GetCharacterMovement()->GetMaxSpeed())
+		{
+			DestroyGhostActor();
+			DestroyPathEffects();
+			PathPoints.Empty();
+			return;
+		}
+
+		if (!IsValid(GhostActor))
+		{
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = PC;
+			SpawnParams.Instigator = BaseCharacter;
+			GhostActor = GetWorld()->SpawnActor<AGhostActor>(GhostActorClass, SpawnParams);
+			GhostActor->CopyMeshFrom(BaseCharacter->GetMesh());
+		}
+		GhostActor->SetActorLocation(PathPoints.Last());
+
+		const int32 NumSegments = FMath::Max(PathPoints.Num() - 1, 0);
+		while (PathEffects.Num() < NumSegments)
+		{
+			UNiagaraComponent* Effect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+				this, PathEffect, PathPoints[PathEffects.Num()], FRotator::ZeroRotator, FVector(1.f), false, true);
+			PathEffects.Add(Effect);
+		}
+		while (PathEffects.Num() > NumSegments)
+		{
+			UNiagaraComponent* Effect = PathEffects.Pop();
+			if (IsValid(Effect))
+			{
+				Effect->DestroyComponent();
+			}
+		}
+
+		const FVector Offset(0.f, 0.f, 10.f);
+		for (int32 i = 0; i < PathEffects.Num(); ++i)
+		{
+			UNiagaraComponent* Effect = PathEffects[i];
+			if (IsValid(Effect))
+			{
+				Effect->SetVariableVec3(TEXT("BeamStart"), PathPoints[i] + Offset);
+				Effect->SetVariableVec3(TEXT("BeamEnd"), PathPoints[i + 1] + Offset);
+			}
+		}
+	}
+}
+
+void UMoveComponent::DestroyGhostActor()
+{
 	if (IsValid(GhostActor))
 		GhostActor->Destroy();
-	ABaseCharacter* Character = Cast<ABaseCharacter>(GetOwner());
-	APvPPlayerController* PC = Cast<APvPPlayerController>(Character->GetController());
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = PC;
-	SpawnParams.Instigator = Character;
-	GhostActor = GetWorld()->SpawnActor<AGhostActor>(GhostActorClass, TargetLocation, FRotator::ZeroRotator, SpawnParams);
-	GhostActor->CopyMeshFrom(Character->GetMesh());
-	BuildPathTo(TargetLocation);
-	UpdatePathVisual(0);
-
-	return true;
 }
 
-bool UMoveComponent::Move()
+void UMoveComponent::DestroyPathEffects()
 {
-	if (!IsValid(GhostActor))
-		return false;
-
-	GhostActor->Destroy();
-	RouteComponent->DeActive();
-	SetComponentTickEnabled(true);
-	return true;
-}
-
-void UMoveComponent::UpdateAutoMove(float DeltaTime, APawn* Pawn)
-{
-	const float TotalLength = GetSplineLength();
-	const float Key = FindInputKeyClosestToWorldLocation(Pawn->GetActorLocation());
-	const float CurDist = GetDistanceAlongSplineAtSplineInputKey(Key);
-	const float Remaining = TotalLength - CurDist;
-	if (Remaining <= AcceptanceRadius)
+	while (!PathEffects.IsEmpty())
 	{
-		StopMove();
-		return;
+		UNiagaraComponent* Effect = PathEffects.Pop();
+		if (IsValid(Effect))
+		{
+			Effect->DestroyComponent();
+		}
 	}
-	const float TargetDist = FMath::Min(CurDist + LookAheadDistance, TotalLength);
-	const FVector Target = GetLocationAtDistanceAlongSpline(TargetDist, ESplineCoordinateSpace::World);
-	const FVector Direction = (Target - Pawn->GetActorLocation()).GetSafeNormal2D();
-	const float InputScale = FMath::Clamp(Remaining / SlowDownDistance, 0.3f, 1.f);
-	Pawn->AddMovementInput(Direction, InputScale);
-	UpdatePathVisual(CurDist);
-}
-
-void UMoveComponent::StopMove()
-{
-	HidePathVisual();
-	SetComponentTickEnabled(false);
 }

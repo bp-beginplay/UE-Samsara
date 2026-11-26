@@ -3,48 +3,65 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Component/PathComponent.h"
+#include "Components/ActorComponent.h"
 #include "MoveComponent.generated.h"
 
-class USplineMeshComponent;
-class UStaticMesh;
-class UMaterialInterface;
-class URouteComponent;
+DECLARE_DELEGATE(FOnTickFunc);
+
+class UNiagaraSystem;
+class UNiagaraComponent;
 class AGhostActor;
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class SAMSARA_API UMoveComponent : public UPathComponent
+UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+class SAMSARA_API UMoveComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
 	// 기본 함수
-protected:
-	virtual void BeginPlay() override;
+public:
+	UMoveComponent();
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+
 
 
 	// 커스텀 함수
 public:
-	void Active();
-	void DeActive();
+	void StartSetTarget();
 	bool SetTarget();
-	bool Move();
-	void StopMove();
-private:
-	void UpdateAutoMove(float DeltaTime, APawn* Pawn);
+	bool Active();
 
 private:
+	void UpdateMovePreview();
+	void DestroyGhostActor();
+	void DestroyPathEffects();
+	void Move();
+	void FinishMove();
+
+
+	// 변수
+private:
+	UPROPERTY(EditDefaultsOnly, Category = "Effect")
+	TObjectPtr<UNiagaraSystem> PathEffect;
+	UPROPERTY(EditDefaultsOnly, Category = "Effect")
+	float PathEffectHeightOffset = 10.f;
+
 	UPROPERTY(Transient)
-	TObjectPtr<URouteComponent> RouteComponent;
+	TArray<TObjectPtr<UNiagaraComponent>> PathEffects;
+	TArray<FVector> PathPoints;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AGhostActor> GhostActorClass;
 	AGhostActor* GhostActor;
 
-	UPROPERTY(EditDefaultsOnly, Category = "AutoMove", meta = (ClampMin = "10.0"))
-	float LookAheadDistance = 100.f;
-	UPROPERTY(EditDefaultsOnly, Category = "AutoMove", meta = (ClampMin = "1.0"))
+	FOnTickFunc OnTickFunc;
+
+	bool bCanMove = false;
+	UPROPERTY(EditDefaultsOnly, Category = "Move", meta = (ClampMin = "1.0"))
 	float AcceptanceRadius = 30.f;
-	UPROPERTY(EditDefaultsOnly, Category = "AutoMove", meta = (ClampMin = "1.0"))
-	float SlowDownDistance = 150.f;
+	int32 CurrentPointIndex = 0;
+
+	// Get/Set 함수
+public:
+	const TArray<FVector>& GetPathPoints() const { return PathPoints; }
 };
