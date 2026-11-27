@@ -18,6 +18,7 @@ struct FInputActionInstance;
 class ASkillRange;
 class URangeComponent;
 class UMoveComponent;
+class UMoveRangeComponent;
 
 USTRUCT()
 struct FArhatIcons
@@ -79,6 +80,9 @@ private:
 	TObjectPtr<URangeComponent> RangeComponent;
 	UPROPERTY(VisibleAnywhere, Category = "Range")
 	TObjectPtr<UMoveComponent> MoveComponent;
+	/** 목적지를 고르는 동안 실제 이동 가능 범위를 바닥에 표시하는 데칼. */
+	UPROPERTY(VisibleAnywhere, Category = "Range")
+	TObjectPtr<UMoveRangeComponent> MoveRangeComponent;
 
 	// Get/Set 함수
 public:

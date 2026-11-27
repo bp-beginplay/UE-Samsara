@@ -17,6 +17,7 @@
 #include "PlayerController/PvPPlayerController.h"
 #include "Component/RangeComponent.h"
 #include "Component/MoveComponent.h"
+#include "Component/MoveRangeComponent.h"
 #include "Actor/GhostActor.h"
 
 #include "LogTest.h"
@@ -53,6 +54,9 @@ ABaseCharacter::ABaseCharacter()
 	RangeComponent->SetupAttachment(RootComponent);
 
 	MoveComponent = CreateDefaultSubobject<UMoveComponent>(TEXT("MoveComponent"));
+
+	MoveRangeComponent = CreateDefaultSubobject<UMoveRangeComponent>(TEXT("MoveRangeComponent"));
+	MoveRangeComponent->SetupAttachment(RootComponent);
 
 	bCanAffectNavigationGeneration = true;
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
@@ -116,7 +120,8 @@ void ABaseCharacter::BeginPlay()
 
 void ABaseCharacter::ClientInitCharacter_Implementation()
 {
-
+	// 빙의가 풀리면 이동 가능 범위 표시를 숨긴다.
+	MoveRangeComponent->Hide();
 }
 
 void ABaseCharacter::MoveCamera(const FInputActionValue& Value)
@@ -129,6 +134,8 @@ void ABaseCharacter::CompleteLMB()
 {
 	if (MoveComponent->SetTarget())
 	{
+		// 목적지가 정해지면 이동 가능 범위 표시는 숨긴다.
+		MoveRangeComponent->Hide();
 		LOG_TEXT("Success SetTarget");
 	}
 	else
@@ -165,4 +172,6 @@ void ABaseCharacter::StartedA()
 void ABaseCharacter::StartedS()
 {
 	MoveComponent->StartSetTarget();
+	// 목적지를 고르는 동안 실제 이동 가능 범위를 보여 준다.
+	MoveRangeComponent->Show();
 }
