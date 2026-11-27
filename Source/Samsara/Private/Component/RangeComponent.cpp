@@ -55,12 +55,6 @@ void URangeComponent::EnableDetection()
 	SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
 
-void URangeComponent::DisableDetection()
-{
-	SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	ClearTargetLinkEffects();
-}
-
 void URangeComponent::SetRangeRadius(float InRadius)
 {
 	SetSphereRadius(InRadius);

@@ -201,9 +201,10 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 - 에셋 값이 사라지지 않도록 CoreRedirects 추가
 - Wraith 블루프린트, 애니메이션 에셋과 폴더 이름의 `Warith` 오타 수정, 옛 태그로 저장된 에셋 다시 저장 `df206d3` `76bdce9`
 - 쓰지 않는 코드 삭제
-  - `SkillRange` 액터와 `BP_SkillRangeCircle` (이동 거리 원 데칼, `MoveRangeComponent`로 대체됨. 머티리얼 `M_SkillRangeDecal`은 사거리 원에 쓰려고 남김)
+  - `SkillRange` 액터, `BP_SkillRangeCircle`, `M_SkillRangeDecal` (이동 거리 원 데칼, `MoveRangeComponent`로 대체됨)
   - 바인딩하지 않던 WASD 카메라 입력 `IA_CameraMoveKeys` (S 키와 겹쳐서 빼 두었던 것)
-  - 쓰지 않는 함수: `BindTriggeredAndCompleted`, `GetPathPoints`, `GetGhostMesh`, `GhostAnimInstance`의 빈 함수와 변수
+  - 쓰지 않는 함수: `BindTriggeredAndCompleted`, `GetPathPoints`, `GetGhostMesh`, `IsEnemy`, `GetTargetsInRange`, `DisableDetection`, `GhostAnimInstance`의 빈 함수와 변수
+- 모든 헤더의 클래스, 변수, 함수에 설명 주석 추가
 
 **문서**
 - 붙어 선 캐릭터에서 출발하면 경로가 꺾이는 문제의 원인과 해결 방향 정리 (아직 구현 안 함) `7498c88`
@@ -520,7 +521,7 @@ S를 누르면 이번 턴에 **실제로 갈 수 있는 범위**를 바닥에 �
 | Range | Ignore | 사거리 원끼리 서로 감지하지 않게 |
 | 나머지 | Ignore | 벽, 커서 판정(Visibility) 등을 방해하지 않게 |
 
-기본 상태는 `NoCollision`이다. `EnableDetection()`을 불러야 `QueryOnly`로 켜지고, `DisableDetection()`으로 끄면 이펙트도 정리한다.
+기본 상태는 `NoCollision`이다. `EnableDetection()`을 불러야 `QueryOnly`로 켜진다. (지금은 고스트만 켬)
 
 ### 범위 안 캐릭터 표시
 
@@ -553,6 +554,6 @@ S를 누르면 이번 턴에 **실제로 갈 수 있는 범위**를 바닥에 �
 |---|---|---|
 | 붙어 선 캐릭터에서 출발하면 경로가 꺾임 | 스폰 직후 같은 팀 캐릭터 | 4번의 위치 보정 함수 |
 | 목적지를 고르다가 다른 아라한으로 바꾸면 정리가 덜 됨 | 고스트와 경로 이펙트가 남고, 자기 장애물이 꺼진 채로 남음 | 빙의 해제 시 MoveComponent에 취소 함수(고스트, 이펙트 제거 + `SetOwnerNavObstacle(true)`) 호출 |
-| 캐릭터 자신의 `RangeComponent`는 감지가 꺼져 있음 | 고스트 없이 A를 누르면 원 크기만 바뀌고 범위 안 캐릭터가 표시되지 않음 | 빙의할 때 `EnableDetection()`, 해제할 때 `DisableDetection()` |
+| 캐릭터 자신의 `RangeComponent`는 감지가 꺼져 있음 | 고스트 없이 A를 누르면 원 크기만 바뀌고 범위 안 캐릭터가 표시되지 않음 | 빙의할 때 `EnableDetection()`, 해제할 때 감지를 끄고 이펙트를 지우는 함수를 만들어 호출 |
 | `ServerSetArhats`가 Server RPC | 클라이언트가 직접 불러 아라한 목록을 바꿀 수 있음 | 서버 전용 일반 함수로 바꾸기 |
 | 사거리 원이 디버그 형태로 보임 (`bHiddenInGame = false`) | 보기용 임시 | 원 데칼 머티리얼로 바꾸기 |

@@ -34,6 +34,7 @@ class SAMSARA_API UMoveRangeComponent : public UDecalComponent
 
 	// 기본 함수
 public:
+	/** 데칼을 아래로 향하게 돌리고 숨긴 상태로 시작한다. */
 	UMoveRangeComponent();
 
 	// 커스텀 함수
@@ -81,8 +82,10 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "MoveRange")
 	FName MaskParameterName = TEXT("RangeMask");
 
+	/** 코드에서 만드는 마스크 텍스처 (TextureResolution x TextureResolution). */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> MaskTexture;
+	/** 데칼 머티리얼의 동적 인스턴스. MaskTexture를 파라미터로 넘긴다. */
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> MaskMaterial;
 
@@ -90,8 +93,9 @@ private:
 	TArray<float> Reachable;
 	/** 텍스처 픽셀 (B, G, R, A 순서 4바이트씩). */
 	TArray<uint8> MaskPixels;
-	/** 계산 기준이 되는 중심 위치와 반지름 (Show 시점의 값). */
+	/** 계산 기준이 되는 중심 위치 (Show 시점의 캐릭터 위치). */
 	FVector Center = FVector::ZeroVector;
+	/** 이동 거리 = 범위 반지름 (Show 시점의 최대 이동 속도). */
 	float Radius = 0.f;
 	/** StartDelay 뒤 ComputeRange를 부르는 타이머. */
 	FTimerHandle ComputeTimer;

@@ -17,9 +17,10 @@ struct FArhatClassEntry
 {
 	GENERATED_BODY()
 
+	/** 아라한을 가리키는 태그. (예: Synergy.A.Aurora) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FGameplayTag CharacterTag;
-
+	/** 이 태그로 스폰할 아라한 블루프린트 클래스. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<ABaseCharacter> ArhatClass;
 };
@@ -37,6 +38,7 @@ public:
 
 	// 변수
 private:
+	/** 게임에 나오는 모든 아라한의 태그와 클래스. */
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FArhatClassEntry> ArhatClasses;
 };

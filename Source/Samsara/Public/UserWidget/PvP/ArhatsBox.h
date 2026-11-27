@@ -17,6 +17,7 @@ class SAMSARA_API UArhatsBox : public UUserWidget
 
 	// 기본 함수
 protected:
+	/** 버튼마다 클릭 함수를 연결한다. */
 	virtual void NativeOnInitialized() override;
 
 	// 커스텀 함수
@@ -46,6 +47,7 @@ private:
 
 	// 변수
 private:
+	/** 위젯 블루프린트의 ArhatButton1~6. 번호 - 1이 아라한 인덱스다. (BindWidget) */
 	UPROPERTY(meta = (BindWidget))
 	UArhatButton* ArhatButton1;
 	UPROPERTY(meta = (BindWidget))

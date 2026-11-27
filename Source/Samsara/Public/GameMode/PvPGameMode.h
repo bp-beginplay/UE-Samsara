@@ -26,6 +26,7 @@ public:
 	/** 플레이어 2명이 모두 접속해 아라한을 골랐으면 시작한다. */
 	virtual bool ReadyToStartMatch_Implementation() override;
 protected:
+	/** 매치가 시작되면 플레이어마다 아라한을 스폰해 컨트롤러에 넘긴다. */
 	virtual void HandleMatchHasStarted() override;
 
 	// 커스텀 함수

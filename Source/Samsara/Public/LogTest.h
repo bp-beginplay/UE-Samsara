@@ -2,6 +2,10 @@
 
 #include "CoreMinimal.h"
 
+/**
+ * 디버그 로그용 카테고리와 매크로.
+ * 모두 LogTest 카테고리, Warning 단계로 출력 로그에 찍는다. (예: LOG_TEXT("Success"), LOG_VECTOR(Location))
+ */
 DECLARE_LOG_CATEGORY_EXTERN(LogTest, Log, All);
 
 #define LOG_HASAUTHORITY() \

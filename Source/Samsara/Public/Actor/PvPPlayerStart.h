@@ -17,6 +17,7 @@ class SAMSARA_API APvPPlayerStart : public APlayerStart, public ITeamInterface
 
 	// 변수
 private:
+	/** 이 시작 위치를 쓰는 팀. 레벨에서 지정한다. */
 	UPROPERTY(EditAnywhere)
 	int32 TeamId = INDEX_NONE;
 	/** 이미 한 플레이어가 이 시작 위치를 쓰고 있는지. */
@@ -24,7 +25,9 @@ private:
 
 	// Get/Set 함수
 public:
+	/** 이미 쓰인 시작 위치인지. */
 	bool IsSpawned() const { return bSpawned; }
+	/** 시작 위치를 쓰였다고 표시한다. */
 	void SetSpawned(bool bNewSpawned) { bSpawned = bNewSpawned; }
 
 	// ITeamInterface

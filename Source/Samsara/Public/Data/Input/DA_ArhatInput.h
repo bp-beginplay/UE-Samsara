@@ -18,12 +18,15 @@ class SAMSARA_API UDA_ArhatInput : public UDA_BaseInput
 public:
 	/** 컨트롤러의 로컬 플레이어에 매핑 컨텍스트를 추가한다. */
 	void AddMapping(const AController* Controller) const;
+	/** 컨트롤러의 로컬 플레이어에서 매핑 컨텍스트를 뺀다. */
 	void RemoveMapping(const AController* Controller) const;
 
 	// 변수
 private:
+	/** 아라한 조종 키를 입력 액션에 연결한 매핑 컨텍스트. (IMC_Arhat) */
 	UPROPERTY(EditDefaultsOnly, Category = "Mapping")
 	UInputMappingContext* MappingContext;
+	/** 매핑 컨텍스트 우선순위. 같은 키를 쓰는 다른 매핑보다 높으면 이쪽이 먼저 받는다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Mapping")
 	int32 MappingPriority;
 

@@ -22,10 +22,12 @@ public:
 
 	// 변수
 private:
+	/** 위젯 블루프린트에 있는 이름이 "Button"인 버튼. (BindWidget) */
 	UPROPERTY(meta = (BindWidget))
 	UButton* Button;
 
 	// Get/Set 함수
 public:
+	/** 클릭 이벤트를 연결할 때 쓰는 버튼. */
 	UButton* GetButton() const { return Button; }
 };

@@ -10,6 +10,7 @@ class UNiagaraSystem;
 class UNiagaraComponent;
 class AGhostActor;
 
+/** 틱마다 실행할 함수(미리보기 또는 이동)를 담는 델리게이트. */
 DECLARE_DELEGATE(FMoveTickDelegate);
 
 /**
@@ -28,7 +29,9 @@ class SAMSARA_API UMoveComponent : public UActorComponent
 
 	// 기본 함수
 public:
+	/** 틱은 필요할 때만 켜도록 꺼진 상태로 시작한다. */
 	UMoveComponent();
+	/** TickFunction에 연결된 함수를 실행한다. */
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	// 커스텀 함수
@@ -42,6 +45,7 @@ public:
 
 private:
 	// 목적지 고르기 (미리보기)
+	/** 매 틱 커서 위치로 경로를 다시 만들고, 이동 거리로 자른 뒤 고스트와 경로 이펙트를 옮긴다. 조종하는 클라이언트에서만 동작. */
 	void UpdateDestinationPreview();
 	/**
 	 * 커서 위치로 가는 미리보기 경로를 PathPoints에 만든다.
@@ -56,13 +60,17 @@ private:
 	void TrimPathToLength(float MaxLength);
 	/** PathPoints의 이웃한 두 지점마다 빔 이펙트를 하나씩 배치한다. */
 	void UpdatePathEffects();
+	/** 고스트가 없으면 만들고 캐릭터 메시를 복사한다. */
 	void SpawnGhostActor();
+	/** 고스트를 없앤다. */
 	void DestroyGhostActor();
+	/** 경로 이펙트를 모두 지운다. */
 	void DestroyPathEffects();
 
 	// 이동
 	/** 매 틱 다음 경로 지점을 향해 이동 입력을 넣는다. */
 	void UpdateMove();
+	/** 이동을 끝낸다. 틱을 끄고 경로와 이펙트를 정리한 뒤 자기 장애물을 다시 켠다. */
 	void FinishMove();
 
 	/** 소유 캐릭터의 캡슐을 내비게이션 장애물로 쓸지 정한다. 목적지를 고르고 이동하는 동안에는 자기 장애물을 끈다. */
@@ -77,6 +85,7 @@ private:
 	/** 바닥에 가려지지 않도록 경로 이펙트를 띄우는 높이. */
 	UPROPERTY(EditDefaultsOnly, Category = "Effect")
 	float PathEffectHeightOffset = 10.f;
+	/** 목적지에 스폰할 고스트 블루프린트 클래스. */
 	UPROPERTY(EditDefaultsOnly, Category = "Ghost")
 	TSubclassOf<AGhostActor> GhostActorClass;
 	/** 이 거리(평면) 안에 들어오면 그 경로 지점에 도착한 것으로 본다. */
@@ -104,5 +113,6 @@ private:
 
 	// Get/Set 함수
 public:
+	/** 목적지 고스트. 목적지를 고르기 전이나 이동을 시작한 뒤에는 nullptr. */
 	AGhostActor* GetGhostActor() const { return GhostActor; }
 };

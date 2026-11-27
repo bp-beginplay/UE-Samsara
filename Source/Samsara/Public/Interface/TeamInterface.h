@@ -6,6 +6,7 @@
 #include "UObject/Interface.h"
 #include "TeamInterface.generated.h"
 
+/** 리플렉션용 인터페이스 클래스. 실제 함수는 ITeamInterface에 있다. */
 UINTERFACE(MinimalAPI)
 class UTeamInterface : public UInterface
 {
@@ -18,11 +19,11 @@ class SAMSARA_API ITeamInterface
 	GENERATED_BODY()
 
 public:
+	/** 소속 팀 번호. INDEX_NONE이면 팀 없음. */
 	virtual int32 GetTeamId() const = 0;
+	/** 소속 팀을 정한다. */
 	virtual void SetTeamId(int32 NewTeamId) = 0;
 
 	/** 같은 팀인지. 둘 중 하나라도 팀이 없으면 false. */
 	bool IsAlly(const AActor* Other) const;
-	/** 다른 팀인지. 둘 중 하나라도 팀이 없으면 false. */
-	bool IsEnemy(const AActor* Other) const;
 };

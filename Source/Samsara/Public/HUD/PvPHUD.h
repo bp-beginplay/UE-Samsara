@@ -22,8 +22,10 @@ public:
 
 	// 변수
 private:
+	/** 만들 메인 메뉴 위젯 블루프린트 클래스. */
 	UPROPERTY(EditDefaultsOnly, Category = "Widget")
 	TSubclassOf<UPvPMainMenu> MainMenuClass;
+	/** 만든 메인 메뉴. 한 번만 만들고 다시 쓴다. */
 	UPROPERTY()
 	UPvPMainMenu* MainMenu;
 };

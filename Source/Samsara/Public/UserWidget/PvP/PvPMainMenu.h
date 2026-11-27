@@ -16,10 +16,12 @@ class SAMSARA_API UPvPMainMenu : public UUserWidget
 
 	// 변수
 private:
+	/** 아라한 선택 버튼 묶음. (BindWidget) */
 	UPROPERTY(meta = (BindWidget))
 	UArhatsBox* ArhatsBox;
 
 	// Get/Set 함수
 public:
+	/** 아라한 선택 버튼 묶음. HUD가 버튼을 초기화할 때 쓴다. */
 	UArhatsBox* GetArhatsBox() const { return ArhatsBox; }
 };

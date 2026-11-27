@@ -22,8 +22,10 @@ class SAMSARA_API AGhostActor : public AActor
 
 	// 기본 함수
 public:
+	/** 루트, 충돌 없는 고스트 메시, 사거리 컴포넌트를 만든다. */
 	AGhostActor();
 protected:
+	/** 사거리 감지를 켠다. */
 	virtual void BeginPlay() override;
 
 	// 커스텀 함수
@@ -35,14 +37,17 @@ public:
 
 	// 변수
 private:
+	/** 루트. 이 위치가 목적지(바닥 지점)다. */
 	UPROPERTY(VisibleAnywhere, Category = "Ghost")
 	TObjectPtr<USceneComponent> Root;
+	/** 캐릭터 메시를 복사해 보여 주는 메시. 충돌, 그림자, 데칼을 모두 끈다. */
 	UPROPERTY(VisibleAnywhere, Category = "Ghost")
 	TObjectPtr<USkeletalMeshComponent> GhostMesh;
 	/** 고스트에 덮어쓸 머티리얼. 비워 두면 캐릭터 원래 머티리얼을 그대로 쓴다. */
 	UPROPERTY(EditDefaultsOnly, Category = "Ghost")
 	TObjectPtr<UMaterialInterface> GhostMaterial;
 
+	/** 목적지 기준 공격 사거리. 이동한 뒤 닿는 캐릭터를 미리 보여 준다. */
 	UPROPERTY(VisibleAnywhere, Category = "Range")
 	TObjectPtr<URangeComponent> RangeComponent;
 };

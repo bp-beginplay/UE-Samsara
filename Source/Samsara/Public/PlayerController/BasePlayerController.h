@@ -14,6 +14,7 @@ class SAMSARA_API ABasePlayerController : public APlayerController
 
 	// 기본 함수
 protected:
+	/** 마우스 커서를 보이게 한다. */
 	virtual void BeginPlay() override;
 
 	// 커스텀 함수
