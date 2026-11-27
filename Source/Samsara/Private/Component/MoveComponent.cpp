@@ -130,13 +130,23 @@ void UMoveComponent::UpdateMovePreview()
 	if (PathPoints.IsEmpty())
 		return;
 
+	// 경로가 이동 가능 거리(MaxSpeed)보다 길면, 경로를 따라 정확히 MaxSpeed 지점에서 자른다.
+	// 그러면 마지막 지점은 커서(Hit.Location) 쪽으로 갈 수 있는 가장 먼 곳이 되고, 총길이는 MaxSpeed가 된다.
+	const float MaxLength = BaseCharacter->GetCharacterMovement()->GetMaxSpeed();
 	float Length = 0.f;
 	for (int32 i = 1; i < PathPoints.Num(); ++i)
 	{
-		Length += FVector::Dist(PathPoints[i - 1], PathPoints[i]);
+		const float SegmentDist = FVector::Dist(PathPoints[i - 1], PathPoints[i]);
+		if (Length + SegmentDist > MaxLength)
+		{
+			// 이 구간 안에서 남은 거리만큼만 간 위치를 마지막 지점으로 하고, 그 뒤 지점은 버린다.
+			const float Alpha = (MaxLength - Length) / SegmentDist;
+			PathPoints[i] = FMath::Lerp(PathPoints[i - 1], PathPoints[i], Alpha);
+			PathPoints.SetNum(i + 1);
+			break;
+		}
+		Length += SegmentDist;
 	}
-	if (Length > BaseCharacter->GetCharacterMovement()->GetMaxSpeed())
-		return;
 
 	if(IsValid(GhostActor))
 		GhostActor->SetActorLocation(PathPoints.Last());
