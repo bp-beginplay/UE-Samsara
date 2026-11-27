@@ -9,13 +9,9 @@ void ABasePlayerController::BeginPlay()
 
 	bShowMouseCursor = true;
 	DefaultMouseCursor = EMouseCursor::Default;
-	//FInputModeGameAndUI InputModeData;
-	//InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	//InputModeData.SetHideCursorDuringCapture(false);
-	//SetInputMode(InputModeData);
 }
 
-FHitResult ABasePlayerController::GetUnderCursorHit()
+FHitResult ABasePlayerController::GetUnderCursorHit() const
 {
 	FHitResult Hit;
 	GetHitResultUnderCursor(ECC_Visibility, false, Hit);

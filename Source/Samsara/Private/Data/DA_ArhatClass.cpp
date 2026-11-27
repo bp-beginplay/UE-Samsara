@@ -3,14 +3,14 @@
 
 #include "Data/DA_ArhatClass.h"
 
-TSubclassOf<ABaseCharacter> UDA_ArhatClass::GetArhatClassByTag(const FGameplayTag& InTag) const
+TSubclassOf<ABaseCharacter> UDA_ArhatClass::FindArhatClass(const FGameplayTag& ArhatTag) const
 {
-    for (const FArhatClass& Info : ArhatClasses)
-    {
-        if (Info.CharacterTag.MatchesTagExact(InTag))
-        {
-            return Info.ArhatClass;
-        }
-    }
-    return nullptr;
+	for (const FArhatClassEntry& Entry : ArhatClasses)
+	{
+		if (Entry.CharacterTag.MatchesTagExact(ArhatTag))
+		{
+			return Entry.ArhatClass;
+		}
+	}
+	return nullptr;
 }

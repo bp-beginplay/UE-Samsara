@@ -6,12 +6,9 @@
 #include "Character/BaseCharacter.h"
 #include "ArhatAurora.generated.h"
 
-/**
- * 
- */
+/** 아라한: Aurora */
 UCLASS()
 class SAMSARA_API AArhatAurora : public ABaseCharacter
 {
 	GENERATED_BODY()
-	
 };

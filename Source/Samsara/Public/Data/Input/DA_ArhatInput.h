@@ -8,31 +8,50 @@
 
 class AController;
 
+/** 아라한(캐릭터)을 조종할 때 쓰는 입력 매핑과 입력 액션. */
 UCLASS()
 class SAMSARA_API UDA_ArhatInput : public UDA_BaseInput
 {
 	GENERATED_BODY()
-	
-public:
-	void AddMappingArhat(const AController* Controller) const;
-	void RemoveMappingArhat(const AController* Controller) const;
 
-private:
-	UPROPERTY(EditDefaultsOnly)
-	UInputMappingContext* IMC_Arhat;
-	UPROPERTY(EditDefaultsOnly)
-	int32 Pri_Arhat;
+	// 커스텀 함수
 public:
-	UPROPERTY(EditDefaultsOnly)
-	UInputAction* IA_ArhatWASD;
-	UPROPERTY(EditDefaultsOnly)
-	UInputAction* IA_ArhatMouxeXY;
-	UPROPERTY(EditDefaultsOnly)
-	UInputAction* IA_ArhatLMB;
-	UPROPERTY(EditDefaultsOnly)
-	UInputAction* IA_ArhatSB;
-	UPROPERTY(EditDefaultsOnly)
-	UInputAction* IA_ArhatA;
-	UPROPERTY(EditDefaultsOnly)
-	UInputAction* IA_ArhatS;
+	/** 컨트롤러의 로컬 플레이어에 매핑 컨텍스트를 추가한다. */
+	void AddMapping(const AController* Controller) const;
+	void RemoveMapping(const AController* Controller) const;
+
+	// 변수
+private:
+	UPROPERTY(EditDefaultsOnly, Category = "Mapping")
+	UInputMappingContext* MappingContext;
+	UPROPERTY(EditDefaultsOnly, Category = "Mapping")
+	int32 MappingPriority;
+
+	/** WASD : 카메라 이동 (현재 사용하지 않음) */
+	UPROPERTY(EditDefaultsOnly, Category = "Action")
+	UInputAction* IA_CameraMoveKeys;
+	/** 마우스 이동 : 카메라 이동 */
+	UPROPERTY(EditDefaultsOnly, Category = "Action")
+	UInputAction* IA_CameraMoveMouse;
+	/** S : 목적지 고르기 시작 */
+	UPROPERTY(EditDefaultsOnly, Category = "Action")
+	UInputAction* IA_SelectDestination;
+	/** 좌클릭 : 목적지 확정 */
+	UPROPERTY(EditDefaultsOnly, Category = "Action")
+	UInputAction* IA_ConfirmDestination;
+	/** 스페이스 : 이동 시작 */
+	UPROPERTY(EditDefaultsOnly, Category = "Action")
+	UInputAction* IA_StartMove;
+	/** A : 공격 사거리 표시 */
+	UPROPERTY(EditDefaultsOnly, Category = "Action")
+	UInputAction* IA_ShowAttackRange;
+
+	// Get/Set 함수
+public:
+	const UInputAction* GetCameraMoveKeysAction() const { return IA_CameraMoveKeys; }
+	const UInputAction* GetCameraMoveMouseAction() const { return IA_CameraMoveMouse; }
+	const UInputAction* GetSelectDestinationAction() const { return IA_SelectDestination; }
+	const UInputAction* GetConfirmDestinationAction() const { return IA_ConfirmDestination; }
+	const UInputAction* GetStartMoveAction() const { return IA_StartMove; }
+	const UInputAction* GetShowAttackRangeAction() const { return IA_ShowAttackRange; }
 };

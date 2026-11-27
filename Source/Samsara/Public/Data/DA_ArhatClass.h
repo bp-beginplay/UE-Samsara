@@ -4,14 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+
 #include "GameplayTagContainer.h"
 
 #include "DA_ArhatClass.generated.h"
 
 class ABaseCharacter;
 
+/** 아라한 태그 하나와 그 태그로 스폰할 캐릭터 클래스. */
 USTRUCT(BlueprintType)
-struct FArhatClass
+struct FArhatClassEntry
 {
 	GENERATED_BODY()
 
@@ -22,15 +24,19 @@ struct FArhatClass
 	TSubclassOf<ABaseCharacter> ArhatClass;
 };
 
+/** 아라한 태그 → 캐릭터 클래스 표. */
 UCLASS()
 class SAMSARA_API UDA_ArhatClass : public UDataAsset
 {
 	GENERATED_BODY()
 
+	// 커스텀 함수
 public:
-	TSubclassOf<ABaseCharacter> GetArhatClassByTag(const FGameplayTag& InTag) const;
+	/** 태그와 정확히 일치하는 아라한 클래스. 없으면 nullptr. */
+	TSubclassOf<ABaseCharacter> FindArhatClass(const FGameplayTag& ArhatTag) const;
 
+	// 변수
 private:
 	UPROPERTY(EditDefaultsOnly)
-	TArray<FArhatClass> ArhatClasses;
+	TArray<FArhatClassEntry> ArhatClasses;
 };

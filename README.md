@@ -1,12 +1,103 @@
 # UE-Samsara
 
-1대1 턴제 전략 게임
+언리얼 엔진 5.8 C++로 만드는 **1대1 턴제 전략 게임**.
+
+두 플레이어가 각자 아라한(캐릭터) 여러 명을 골라 싸운다. 턴마다 캐릭터를 골라 이동할 곳을 정하고, 공격과 스킬로 상대 아라한을 쓰러뜨린다.
+
+<!-- 스크린샷: Docs/Images 폴더에 넣고 아래 줄 주석을 풀면 된다 -->
+<!-- ![게임 화면](Docs/Images/screenshot.webp) -->
 
 
 
+## 주요 기능
+
+| 기능 | 설명 |
+|---|---|
+| 아라한 선택 | 화면 아래 버튼이나 숫자 키로 조종할 아라한을 고른다 |
+| 이동 미리보기 | 커서까지의 내비게이션 경로를 이펙트로 그리고, 도착 지점에 반투명 고스트를 보여 준다 |
+| 이동 거리 제한 | 경로 길이가 MaxWalkSpeed를 넘으면 그 거리에서 경로를 자른다 |
+| 이동 가능 범위 | 실제로 갈 수 있는 범위를 바닥 데칼로 칠한다 (벽이나 캐릭터 뒤는 파임) |
+| 좁은 틈 차단 | 캐릭터 사이, 캐릭터와 벽 사이 좁은 틈으로는 경로가 생기지 않는다 |
+| 공격 사거리 | 사거리 원을 보여 주고, 범위 안의 캐릭터를 이펙트로 이어 표시한다 |
+| 멀티플레이 | 리슨 서버 1대1. 팀별 시작 위치(PvPPlayerStart)에 아라한을 스폰한다 |
 
 
-개발일지
+
+## 조작법
+
+| 키 | 동작 |
+|---|---|
+| W A S D / 마우스 | 카메라 이동 |
+| 1, 2 | 조종할 아라한 선택 |
+| S | 이동할 곳 고르기 시작 (경로 미리보기, 이동 가능 범위 표시) |
+| 마우스 왼쪽 클릭 | 이동할 곳 확정 |
+| Space | 확정한 곳으로 이동 |
+| A | 공격 사거리 표시 |
+
+키는 `Content/Data`의 입력 데이터 에셋(DA_ArhatInput, DA_PCInput)과 Input Mapping Context에서 바꿀 수 있다.
+
+
+
+## 개발 환경과 실행 방법
+
+### 필요한 것
+
+- Unreal Engine **5.8**
+- Visual Studio 2022 (C++ 게임 개발 워크로드)
+- Git, **Git LFS** (`.uasset`, `.umap`은 LFS로 저장됨)
+
+### 받아서 실행하기
+
+1. 저장소를 받는다.
+   ```
+   git clone https://github.com/bp-beginplay/UE-Samsara.git
+   cd UE-Samsara
+   git lfs pull
+   ```
+2. `Samsara.uproject` 우클릭 → **Generate Visual Studio project files**
+3. `Samsara.sln`을 열고 `Development Editor` / `Win64`로 빌드한다. (또는 `Samsara.uproject`를 더블클릭하고 빌드하겠냐는 창에서 예)
+4. 에디터가 열리면 시작 맵 `Content/Maps/TestMap`이 열린다.
+
+### 1대1 테스트
+
+- 툴바의 플레이 옵션에서 **Number of Players = 2**, **Net Mode = Play As Listen Server**로 두고 플레이한다.
+- 두 플레이어가 모두 들어오고 아라한 선택이 끝나면 게임이 시작된다 (`PvPGameMode::ReadyToStartMatch`).
+
+
+
+## 폴더 구조
+
+C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private`에 같은 폴더 이름으로 나뉜다.
+
+| 폴더 | 내용 |
+|---|---|
+| `Actor` | GhostActor(이동 지점 미리보기), PvPPlayerStart(팀별 시작 위치), SkillRange |
+| `AnimInstance` | 아라한, 고스트 애니메이션 |
+| `Character` | BaseCharacter(모든 아라한의 부모: 카메라, 입력, 컴포넌트), ArhatAurora, ArhatWraith |
+| `Component` | MoveComponent(경로와 이동), MoveRangeComponent(이동 가능 범위 데칼), RangeComponent(사거리) |
+| `Data` | 아라한 클래스 목록, 입력 데이터 에셋 |
+| `GameInstance` | 게임플레이 태그로 아라한 클래스를 찾아 줌 |
+| `GameMode` | PvP 매치 시작 조건, 아라한 스폰 |
+| `HUD`, `UserWidget` | PvP 메인 메뉴, 아라한 선택 버튼 |
+| `Interface` | TeamInterface(같은 팀인지 판단) |
+| `PlayerController`, `PlayerState` | 아라한 빙의, 팀, 선택한 아라한 목록 |
+
+에셋은 `Content` 아래 `Blueprint`, `Data`, `Maps`, `Assets`, `Resource`에 있다. 기술 노트에 쓰는 그림은 `Docs/Images`에 둔다.
+
+
+
+## 이름 짓기 규칙
+
+- 입력 액션은 `IA_` 뒤에 키 이름이 아니라 **하는 일**을 붙인다. (`IA_StartMove`, `IA_SelectArhat1`)
+- 서버 RPC는 `Server`, 클라이언트 RPC는 `Client`로 시작한다. (`ServerPossessArhat`, `ClientOnUnpossessed`)
+- 이펙트 에셋 변수는 `...System`, 만들어 둔 이펙트 컴포넌트 배열은 `...Components`로 짓는다.
+- C++ 이름을 바꾸면 `DefaultEngine.ini`의 `[CoreRedirects]`에 옛 이름을 함께 적는다. (아래 기술 노트 참고)
+
+
+
+---
+
+# 개발일지
 
 20261121
 
@@ -25,7 +116,7 @@
 
 1. MoveComponent에서 이동 지점 설정과 이동 구현
    - 커서 위치까지 내비게이션 경로(PathPoints)를 찾아 경로 구간마다 이펙트로 표시하고, 경로 끝에 고스트를 놓아 이동 지점을 미리 보여 준다.
-   - 좌클릭으로 이동 지점을 확정(SetTarget)하고, 이동을 시작하면 PathPoints를 하나씩 따라 이동한다.
+   - 좌클릭으로 이동 지점을 확정(ConfirmDestination)하고, 이동을 시작하면 PathPoints를 하나씩 따라 이동한다.
 2. 이동 경로(PathPoints)가 캐릭터 사이, 캐릭터와 벽 사이의 좁은 틈을 지나가지 않도록 내비게이션 설정 (아래 "기술 노트" 참고)
 
 20261127
@@ -34,11 +125,59 @@
 2. 실제 이동 가능 범위(경로 길이 기준)를 바닥에 표시하는 데칼 컴포넌트 `MoveRangeComponent` 구현 (아래 "기술 노트" 참고)
 3. 붙어 선 캐릭터에서 출발하면 경로가 꺾이는 문제의 원인과 해결 방향 정리 (아래 "기술 노트" 참고, 아직 구현 안 함)
 
+20261128
+
+1. 전체 코드 정리
+   - 접근 지정자 정리 (외부에서 쓰는 것만 public, 나머지는 private), 변수는 getter로 노출
+   - 긴 함수를 기능별 함수로 나눔 (예: MoveComponent의 경로 만들기, 경로 자르기, 이펙트 갱신)
+2. 이름 정리와 오타 수정
+   - 입력 액션을 키 이름 대신 하는 일로 바꿈 (`IA_ArhatS` → `IA_SelectDestination`, `IA_ArhatSB` → `IA_StartMove` 등)
+   - 함수 이름 정리 (`StartSetTarget` → `BeginSelectDestination`, `SetTarget` → `ConfirmDestination`)
+   - 오타 수정 (`ArhatWarith` → `ArhatWraith`, `IA_ArhatMouxeXY` → `IA_CameraMoveMouse`)
+   - 에셋에 저장된 값이 사라지지 않도록 CoreRedirects 추가 (아래 "기술 노트" 참고)
+3. 정리하면서 찾은 버그 수정
+   - 아라한 6번 버튼이 잘못된 번호의 아라한을 고르던 문제
+   - `OnRep_Arhats`에서 아직 복제되지 않은 아라한을 써서 크러쉬가 나던 문제
+
 
 
 ---
 
 # 기술 노트
+
+## C++ 이름을 바꿔도 에셋 값 유지하기 (CoreRedirects)
+
+### 문제
+
+C++에서 `UPROPERTY` 변수, 클래스, 구조체 이름을 바꾸면 블루프린트와 데이터 에셋에 **옛 이름으로 저장된 값이 사라진다.** 예를 들어 `IA_ArhatS`를 `IA_SelectDestination`으로 바꾸면 데이터 에셋에 지정해 둔 입력 액션이 비어 버린다.
+
+### 해결
+
+`Config/DefaultEngine.ini`의 `[CoreRedirects]`에 옛 이름과 새 이름을 적는다. 에셋을 불러올 때 엔진이 옛 이름을 새 이름으로 바꿔 읽는다.
+
+```ini
+[CoreRedirects]
+; 클래스
++ClassRedirects=(OldName="/Script/Samsara.ArhatWarith",NewName="/Script/Samsara.ArhatWraith")
+; 구조체 (앞의 F는 빼고 적는다)
++StructRedirects=(OldName="/Script/Samsara.ArhatClass",NewName="/Script/Samsara.ArhatClassEntry")
+; 변수 (클래스 이름.옛 변수 이름 → 새 변수 이름)
++PropertyRedirects=(OldName="/Script/Samsara.DA_ArhatInput.IA_ArhatS",NewName="IA_SelectDestination")
+```
+
+- `/Script/Samsara`는 모듈 이름이다. 클래스 이름 앞의 `U`, `A`, `F`는 빼고 적는다.
+- 게임플레이 태그는 `Config/DefaultGameplayTags.ini`에 따로 적는다.
+  ```ini
+  +GameplayTagRedirects=(OldTagName="Synergy.A.Warith",NewTagName="Synergy.A.Wraith")
+  ```
+
+### 바꾼 뒤에 할 일
+
+1. 에디터를 닫고 빌드한 뒤 다시 연다. (ini와 클래스 이름 변경은 라이브 코딩으로 반영되지 않음)
+2. 관련 블루프린트와 데이터 에셋을 열어 값이 그대로인지 확인하고 **저장**한다. 저장하면 새 이름으로 기록된다.
+3. 블루프린트 **에셋 이름**(예: `BP_ArhatWarith`)은 CoreRedirects 대상이 아니다. 콘텐츠 브라우저에서 우클릭 → **Rename**으로 바꾸고, 폴더 우클릭 → **Fix Up Redirectors**를 실행한다.
+4. 모든 에셋을 다시 저장한 뒤에는 리다이렉트 줄을 지워도 되지만, 남겨 두어도 문제는 없다.
+
 
 ## 이동 경로가 캐릭터 사이 좁은 틈을 지나가지 않게 하기
 
@@ -111,21 +250,23 @@ GetCapsuleComponent()->SetAreaClassOverride(UNavArea_Null::StaticClass());
 3번을 적용하면 **이동하려는 캐릭터 자신**의 캡슐도 구멍을 뚫는다. 출발 위치가 구멍 안이 되어 경로를 못 찾으므로, 목적지를 고르는 동안과 이동하는 동안에는 자기 캡슐을 장애물에서 뺀다. 턴제라 한 번에 한 캐릭터만 움직이므로 이 방식으로 충분하다.
 
 ```cpp
-void UMoveComponent::StartSetTarget()
+void UMoveComponent::BeginSelectDestination()
 {
-	if (ABaseCharacter* Character = GetOwner<ABaseCharacter>())
-	{
-		Character->GetCapsuleComponent()->SetCanEverAffectNavigation(false);   // 자기 장애물 끄기
-	}
 	// ...
+	SetOwnerNavObstacle(false);   // 자기 장애물 끄기
 }
 
 void UMoveComponent::FinishMove()
 {
 	// ...
-	if (ABaseCharacter* Character = GetOwner<ABaseCharacter>())
+	SetOwnerNavObstacle(true);    // 이동이 끝나면 다시 켜기
+}
+
+void UMoveComponent::SetOwnerNavObstacle(bool bEnable)
+{
+	if (ABaseCharacter* BaseCharacter = GetOwner<ABaseCharacter>())
 	{
-		Character->GetCapsuleComponent()->SetCanEverAffectNavigation(true);    // 이동이 끝나면 다시 켜기
+		BaseCharacter->GetCapsuleComponent()->SetCanEverAffectNavigation(bEnable);
 	}
 }
 ```
@@ -220,7 +361,7 @@ void UMoveComponent::FinishMove()
    - 스폰 직후 (한 지점에 몰아서 스폰하더라도 보정됨)
    - 나중에 넉백 같은 강제 이동 스킬을 만들면, 그 이동이 끝난 직후
 3. **안전장치**
-   그래도 출발점이 구멍 안이면, 목적지 고르기를 시작할 때(`MoveComponent::StartSetTarget`) 한 번 보정한다. 꺾인 경로를 그리는 대신 캐릭터를 먼저 허용 위치로 옮기는 것이다.
+   그래도 출발점이 구멍 안이면, 목적지 고르기를 시작할 때(`MoveComponent::BeginSelectDestination`) 한 번 보정한다. 꺾인 경로를 그리는 대신 캐릭터를 먼저 허용 위치로 옮기는 것이다.
 
 이렇게 하면 앞으로 스킬이 늘어나도 **"강제로 위치를 바꾸는 곳에서는 보정 함수를 부른다"**는 규칙 하나만 지키면 된다.
 

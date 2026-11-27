@@ -3,29 +3,30 @@
 
 #include "Character/BaseCharacter.h"
 
-#include "Kismet/KismetMathLibrary.h"
 #include "Camera/CameraComponent.h"
-#include "GameFramework/SpringArmComponent.h"
-#include "Blueprint/WidgetLayoutLibrary.h"
-#include "Net/UnrealNetWork.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "NavAreas/NavArea_Null.h"
+#include "Net/UnrealNetwork.h"
 
-#include "Data/Input/DA_ArhatInput.h"
-#include "Actor/SkillRange.h"
-#include "PlayerController/PvPPlayerController.h"
-#include "Component/RangeComponent.h"
+#include "Actor/GhostActor.h"
 #include "Component/MoveComponent.h"
 #include "Component/MoveRangeComponent.h"
-#include "Actor/GhostActor.h"
-
+#include "Component/RangeComponent.h"
+#include "Data/Input/DA_ArhatInput.h"
 #include "LogTest.h"
+
+// ======================================================================
+// 기본 함수
+// ======================================================================
 
 ABaseCharacter::ABaseCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
+	// 카메라: 캐릭터 위에서 60도로 내려다보는 탑다운 시점. 캐릭터가 돌아도 카메라는 돌지 않는다.
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->SetUsingAbsoluteRotation(true);
@@ -40,31 +41,32 @@ ABaseCharacter::ABaseCharacter()
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
 
+	// 회전: 컨트롤러가 아니라 이동 방향으로 몸을 돌린다.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
-
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->bUseControllerDesiredRotation = false;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 720.f, 0.f);
 
+	// 바닥 데칼(사거리, 이동 범위)이 캐릭터 몸에 찍히지 않게 한다.
 	GetMesh()->SetReceivesDecals(false);
 
-	RangeComponent = CreateDefaultSubobject<URangeComponent>(TEXT("RangeComponent"));
-	RangeComponent->SetupAttachment(RootComponent);
-
+	// 이동, 사거리
 	MoveComponent = CreateDefaultSubobject<UMoveComponent>(TEXT("MoveComponent"));
 
 	MoveRangeComponent = CreateDefaultSubobject<UMoveRangeComponent>(TEXT("MoveRangeComponent"));
 	MoveRangeComponent->SetupAttachment(RootComponent);
 
+	RangeComponent = CreateDefaultSubobject<URangeComponent>(TEXT("RangeComponent"));
+	RangeComponent->SetupAttachment(RootComponent);
+
+	// 내비게이션: 캡슐을 "지나갈 수 없는 영역"으로 등록해 다른 캐릭터의 경로가 이 캐릭터를 피해 가게 한다.
+	// ACharacter는 시작할 때 캡슐의 CanEverAffectNavigation을 bCanAffectNavigationGeneration 값으로 덮어쓰므로 둘 다 켠다.
 	bCanAffectNavigationGeneration = true;
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
 	GetCapsuleComponent()->bDynamicObstacle = true;
 	GetCapsuleComponent()->SetAreaClassOverride(UNavArea_Null::StaticClass());
-
-	//SpringArm->SocketOffset = FVector(0.f, 60.f, 70.f);
-	//SpringArm->TargetArmLength = 500.f;
 }
 
 void ABaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -78,100 +80,117 @@ void ABaseCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	const FVector InterpolateLocation = UKismetMathLibrary::VInterpTo(SpringArm->TargetOffset, CameraLocation, DeltaTime, CameraSmoothing);
-	SpringArm->TargetOffset = InterpolateLocation;
+	UpdateCameraOffset(DeltaTime);
 }
 
 void ABaseCharacter::PawnClientRestart()
 {
 	Super::PawnClientRestart();
 
+	// 빙의할 때 카메라를 캐릭터 위치로 되돌린다.
 	SpringArm->TargetOffset = FVector::ZeroVector;
-	CameraLocation = FVector::ZeroVector;
+	CameraTargetOffset = FVector::ZeroVector;
+}
+
+void ABaseCharacter::UnPossessed()
+{
+	ClientOnUnpossessed();
+
+	Super::UnPossessed();
 }
 
 void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	DA_ArhatInput->AddMappingArhat(GetController());
+	if (!InputData)
+	{
+		return;
+	}
+
+	InputData->AddMapping(GetController());
 	if (UEnhancedInputComponent* Input = CastChecked<UEnhancedInputComponent>(InputComponent))
 	{
-		//EBindInput::Triggered(Input, DA_ArhatInput->IA_ArhatWASD, this, &ABaseCharacter::MoveCamera);
-		EBindInput::Triggered(Input, DA_ArhatInput->IA_ArhatMouxeXY, this, &ABaseCharacter::MoveCamera);
-		EBindInput::Complete(Input, DA_ArhatInput->IA_ArhatLMB, this, &ABaseCharacter::CompleteLMB);
-		EBindInput::Started(Input, DA_ArhatInput->IA_ArhatSB, this, &ABaseCharacter::StartedSB);
-		EBindInput::Started(Input, DA_ArhatInput->IA_ArhatA, this, &ABaseCharacter::StartedA);
-		EBindInput::Started(Input, DA_ArhatInput->IA_ArhatS, this, &ABaseCharacter::StartedS);
+		InputBinding::BindTriggered(Input, InputData->GetCameraMoveMouseAction(), this, &ABaseCharacter::OnCameraMove);
+		InputBinding::BindStarted(Input, InputData->GetSelectDestinationAction(), this, &ABaseCharacter::OnSelectDestination);
+		InputBinding::BindCompleted(Input, InputData->GetConfirmDestinationAction(), this, &ABaseCharacter::OnConfirmDestination);
+		InputBinding::BindStarted(Input, InputData->GetStartMoveAction(), this, &ABaseCharacter::OnStartMove);
+		InputBinding::BindStarted(Input, InputData->GetShowAttackRangeAction(), this, &ABaseCharacter::OnShowAttackRange);
 	}
 }
 
-void ABaseCharacter::UnPossessed()
-{
-	ClientInitCharacter();
+// ======================================================================
+// 입력 처리
+// ======================================================================
 
-	Super::UnPossessed();
-}
-
-void ABaseCharacter::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
-void ABaseCharacter::ClientInitCharacter_Implementation()
-{
-	// 빙의가 풀리면 이동 가능 범위 표시를 숨긴다.
-	MoveRangeComponent->Hide();
-}
-
-void ABaseCharacter::MoveCamera(const FInputActionValue& Value)
+void ABaseCharacter::OnCameraMove(const FInputActionValue& Value)
 {
 	const FVector2D Input = Value.Get<FVector2D>();
-	CameraLocation += FVector(Input.Y, Input.X, 0.f) * CameraSpeed;
+	CameraTargetOffset += FVector(Input.Y, Input.X, 0.f) * CameraSpeed;
 }
 
-void ABaseCharacter::CompleteLMB()
+void ABaseCharacter::OnSelectDestination()
 {
-	if (MoveComponent->SetTarget())
+	// 목적지 고르기 시작: 이동 미리보기와 실제 이동 가능 범위를 보여 준다.
+	MoveComponent->BeginSelectDestination();
+	MoveRangeComponent->Show();
+}
+
+void ABaseCharacter::OnConfirmDestination()
+{
+	if (MoveComponent->ConfirmDestination())
 	{
 		// 목적지가 정해지면 이동 가능 범위 표시는 숨긴다.
 		MoveRangeComponent->Hide();
-		LOG_TEXT("Success SetTarget");
+		LOG_TEXT("Success ConfirmDestination");
 	}
 	else
 	{
-		LOG_TEXT("Fail SetTarget")
+		LOG_TEXT("Fail ConfirmDestination");
 	}
 }
 
-void ABaseCharacter::StartedSB()
+void ABaseCharacter::OnStartMove()
 {
-	if (MoveComponent->Active())
+	if (MoveComponent->StartMove())
 	{
-		LOG_TEXT("Success Active");
+		LOG_TEXT("Success StartMove");
 	}
 	else
 	{
-		LOG_TEXT("Fail Active")
+		LOG_TEXT("Fail StartMove");
 	}
 }
 
-void ABaseCharacter::StartedA()
+void ABaseCharacter::OnShowAttackRange()
 {
+	// 목적지를 정했으면 고스트(도착 위치) 기준, 아니면 캐릭터 기준으로 공격 사거리를 표시한다.
 	AGhostActor* GhostActor = MoveComponent->GetGhostActor();
 	if (IsValid(GhostActor))
 	{
-		GhostActor->SetRange(600);
+		GhostActor->SetRangeRadius(AttackRange);
 	}
 	else
 	{
-		RangeComponent->SetRange(600);
+		RangeComponent->SetRangeRadius(AttackRange);
 	}
 }
 
-void ABaseCharacter::StartedS()
+// ======================================================================
+// 카메라
+// ======================================================================
+
+void ABaseCharacter::UpdateCameraOffset(float DeltaTime)
 {
-	MoveComponent->StartSetTarget();
-	// 목적지를 고르는 동안 실제 이동 가능 범위를 보여 준다.
-	MoveRangeComponent->Show();
+	SpringArm->TargetOffset = UKismetMathLibrary::VInterpTo(SpringArm->TargetOffset, CameraTargetOffset, DeltaTime, CameraSmoothing);
+}
+
+// ======================================================================
+// RPC
+// ======================================================================
+
+void ABaseCharacter::ClientOnUnpossessed_Implementation()
+{
+	// 빙의가 풀리면 이동 가능 범위 표시를 숨긴다.
+	MoveRangeComponent->Hide();
 }

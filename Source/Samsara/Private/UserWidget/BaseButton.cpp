@@ -5,11 +5,16 @@
 
 #include "Components/Button.h"
 
-void UBaseButton::SetButtonImage(UTexture2D* _Image)
+void UBaseButton::SetButtonImage(UTexture2D* InImage)
 {
+	if (!Button)
+	{
+		return;
+	}
+
 	FButtonStyle Style = Button->GetStyle();
-	Style.Normal.SetResourceObject(_Image);
-	Style.Hovered.SetResourceObject(_Image);
-	Style.Pressed.SetResourceObject(_Image);
+	Style.Normal.SetResourceObject(InImage);
+	Style.Hovered.SetResourceObject(InImage);
+	Style.Pressed.SetResourceObject(InImage);
 	Button->SetStyle(Style);
 }

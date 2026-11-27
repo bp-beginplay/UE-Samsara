@@ -4,17 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "PlayerState/BasePlayerState.h"
-#include "GameplayTagContainer.h"
-
 #include "PvPPlayerState.generated.h"
 
-/**
- * 
- */
+/** PvP 매치의 플레이어 스테이트. */
 UCLASS()
 class SAMSARA_API APvPPlayerState : public ABasePlayerState
 {
 	GENERATED_BODY()
-	
-
 };

@@ -3,10 +3,10 @@
 
 #include "GameInstance/SamsaraGameInstance.h"
 
-#include "Data/DA_ArhatClass.h"
 #include "Character/BaseCharacter.h"
+#include "Data/DA_ArhatClass.h"
 
-TSubclassOf<ABaseCharacter> USamsaraGameInstance::GetArhatClass(const FGameplayTag& InTag) const
+TSubclassOf<ABaseCharacter> USamsaraGameInstance::GetArhatClass(const FGameplayTag& ArhatTag) const
 {
-	return DA_ArhatClass->GetArhatClassByTag(InTag);
+	return ArhatClassData ? ArhatClassData->FindArhatClass(ArhatTag) : nullptr;
 }

@@ -11,36 +11,42 @@
 class UInputAction;
 class UInputMappingContext;
 
+/** 입력 매핑과 입력 액션을 담는 데이터 에셋의 공통 클래스. */
 UCLASS()
 class SAMSARA_API UDA_BaseInput : public UDataAsset
 {
 	GENERATED_BODY()
 };
 
-namespace EBindInput
+/** Enhanced Input 바인딩을 짧게 쓰기 위한 함수들. */
+namespace InputBinding
 {
-	template<class T, class StartFuncType>
-	void Started(UEnhancedInputComponent* Input, const UInputAction* Action, T* Obj, StartFuncType StartFunc)
+	/** 키를 누른 순간 한 번 */
+	template<class T, class FuncType>
+	void BindStarted(UEnhancedInputComponent* Input, const UInputAction* Action, T* Object, FuncType Func)
 	{
-		Input->BindAction(Action, ETriggerEvent::Started, Obj, StartFunc);
+		Input->BindAction(Action, ETriggerEvent::Started, Object, Func);
 	}
 
-	template<class T, class TriggerFuncType>
-	void Triggered(UEnhancedInputComponent* Input, const UInputAction* Action, T* Obj, TriggerFuncType TriggerFunc)
+	/** 키를 누르고 있는 동안 매 프레임 */
+	template<class T, class FuncType>
+	void BindTriggered(UEnhancedInputComponent* Input, const UInputAction* Action, T* Object, FuncType Func)
 	{
-		Input->BindAction(Action, ETriggerEvent::Triggered, Obj, TriggerFunc);
+		Input->BindAction(Action, ETriggerEvent::Triggered, Object, Func);
 	}
 
-	template<class T, class CompleteFuncType>
-	void Complete(UEnhancedInputComponent* Input, const UInputAction* Action, T* Obj, CompleteFuncType CompleteFunc)
+	/** 키를 뗀 순간 한 번 */
+	template<class T, class FuncType>
+	void BindCompleted(UEnhancedInputComponent* Input, const UInputAction* Action, T* Object, FuncType Func)
 	{
-		Input->BindAction(Action, ETriggerEvent::Completed, Obj, CompleteFunc);
+		Input->BindAction(Action, ETriggerEvent::Completed, Object, Func);
 	}
 
-	template<class T, class TriggerFuncType, class CompleteFuncType>
-	void TriggeredComplete(UEnhancedInputComponent* Input, const UInputAction* Action, T* Obj, TriggerFuncType TriggerFunc, CompleteFuncType CompleteFunc)
+	/** 누르고 있는 동안 + 뗀 순간 */
+	template<class T, class TriggeredFuncType, class CompletedFuncType>
+	void BindTriggeredAndCompleted(UEnhancedInputComponent* Input, const UInputAction* Action, T* Object, TriggeredFuncType TriggeredFunc, CompletedFuncType CompletedFunc)
 	{
-		Input->BindAction(Action, ETriggerEvent::Triggered, Obj, TriggerFunc);
-		Input->BindAction(Action, ETriggerEvent::Completed, Obj, CompleteFunc);
+		Input->BindAction(Action, ETriggerEvent::Triggered, Object, TriggeredFunc);
+		Input->BindAction(Action, ETriggerEvent::Completed, Object, CompletedFunc);
 	}
 }

@@ -3,13 +3,28 @@
 
 #include "HUD/PvPHUD.h"
 
-#include "UserWidget/PvP/PvPMainMenu.h"
 #include "UserWidget/PvP/ArhatsBox.h"
-#include "LogTest.h"
+#include "UserWidget/PvP/PvPMainMenu.h"
 
-void APvPHUD::InitPvPMainMenu(TArray<ABaseCharacter*> _Arhats)
+void APvPHUD::InitMainMenu(const TArray<ABaseCharacter*>& Arhats)
 {
-	PvPMainMenu = CreateWidget<UPvPMainMenu>(GetOwningPlayerController(), PvPMainMenuClass);
-	PvPMainMenu->AddToViewport();
-	PvPMainMenu->ArhatsBox->InitArhatButtons(_Arhats);
+	// 위젯은 처음 한 번만 만든다. 다시 불리면 버튼만 갱신한다.
+	if (!MainMenu)
+	{
+		if (!MainMenuClass)
+		{
+			return;
+		}
+		MainMenu = CreateWidget<UPvPMainMenu>(GetOwningPlayerController(), MainMenuClass);
+		if (!MainMenu)
+		{
+			return;
+		}
+		MainMenu->AddToViewport();
+	}
+
+	if (UArhatsBox* ArhatsBox = MainMenu->GetArhatsBox())
+	{
+		ArhatsBox->InitArhatButtons(Arhats);
+	}
 }
