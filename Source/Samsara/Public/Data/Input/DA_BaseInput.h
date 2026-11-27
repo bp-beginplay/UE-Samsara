@@ -41,12 +41,4 @@ namespace InputBinding
 	{
 		Input->BindAction(Action, ETriggerEvent::Completed, Object, Func);
 	}
-
-	/** 누르고 있는 동안 + 뗀 순간 */
-	template<class T, class TriggeredFuncType, class CompletedFuncType>
-	void BindTriggeredAndCompleted(UEnhancedInputComponent* Input, const UInputAction* Action, T* Object, TriggeredFuncType TriggeredFunc, CompletedFuncType CompletedFunc)
-	{
-		Input->BindAction(Action, ETriggerEvent::Triggered, Object, TriggeredFunc);
-		Input->BindAction(Action, ETriggerEvent::Completed, Object, CompletedFunc);
-	}
 }

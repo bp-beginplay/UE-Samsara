@@ -45,8 +45,4 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Range")
 	TObjectPtr<URangeComponent> RangeComponent;
-
-	// Get/Set 함수
-public:
-	USkeletalMeshComponent* GetGhostMesh() const { return GhostMesh; }
 };

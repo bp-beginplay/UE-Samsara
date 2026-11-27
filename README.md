@@ -27,7 +27,7 @@
 
 | 키 | 동작 |
 |---|---|
-| W A S D / 마우스 | 카메라 이동 |
+| 마우스 | 카메라 이동 |
 | 1, 2 | 조종할 아라한 선택 |
 | S | 이동할 곳 고르기 시작 (경로 미리보기, 이동 가능 범위 표시) |
 | 마우스 왼쪽 클릭 | 이동할 곳 확정 |
@@ -71,7 +71,7 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 
 | 폴더 | 내용 |
 |---|---|
-| `Actor` | GhostActor(이동 지점 미리보기), PvPPlayerStart(팀별 시작 위치), SkillRange |
+| `Actor` | GhostActor(이동 지점 미리보기), PvPPlayerStart(팀별 시작 위치) |
 | `AnimInstance` | 아라한, 고스트 애니메이션 |
 | `Character` | BaseCharacter(모든 아라한의 부모: 카메라, 입력, 컴포넌트), ArhatAurora, ArhatWraith |
 | `Component` | MoveComponent(경로와 이동), MoveRangeComponent(이동 가능 범위 데칼), RangeComponent(사거리) |
@@ -200,6 +200,10 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 - 오타 수정: `ArhatWarith` → `ArhatWraith`, `IA_ArhatMouxeXY` → `IA_CameraMoveMouse`
 - 에셋 값이 사라지지 않도록 CoreRedirects 추가
 - Wraith 블루프린트, 애니메이션 에셋과 폴더 이름의 `Warith` 오타 수정, 옛 태그로 저장된 에셋 다시 저장 `df206d3` `76bdce9`
+- 쓰지 않는 코드 삭제
+  - `SkillRange` 액터와 `BP_SkillRangeCircle` (이동 거리 원 데칼, `MoveRangeComponent`로 대체됨. 머티리얼 `M_SkillRangeDecal`은 사거리 원에 쓰려고 남김)
+  - 바인딩하지 않던 WASD 카메라 입력 `IA_CameraMoveKeys` (S 키와 겹쳐서 빼 두었던 것)
+  - 쓰지 않는 함수: `BindTriggeredAndCompleted`, `GetPathPoints`, `GetGhostMesh`, `GhostAnimInstance`의 빈 함수와 변수
 
 **문서**
 - 붙어 선 캐릭터에서 출발하면 경로가 꺾이는 문제의 원인과 해결 방향 정리 (아직 구현 안 함) `7498c88`

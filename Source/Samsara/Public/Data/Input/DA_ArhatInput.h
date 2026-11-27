@@ -27,9 +27,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Mapping")
 	int32 MappingPriority;
 
-	/** WASD : 카메라 이동 (현재 사용하지 않음) */
-	UPROPERTY(EditDefaultsOnly, Category = "Action")
-	UInputAction* IA_CameraMoveKeys;
 	/** 마우스 이동 : 카메라 이동 */
 	UPROPERTY(EditDefaultsOnly, Category = "Action")
 	UInputAction* IA_CameraMoveMouse;
@@ -48,7 +45,6 @@ private:
 
 	// Get/Set 함수
 public:
-	const UInputAction* GetCameraMoveKeysAction() const { return IA_CameraMoveKeys; }
 	const UInputAction* GetCameraMoveMouseAction() const { return IA_CameraMoveMouse; }
 	const UInputAction* GetSelectDestinationAction() const { return IA_SelectDestination; }
 	const UInputAction* GetConfirmDestinationAction() const { return IA_ConfirmDestination; }
