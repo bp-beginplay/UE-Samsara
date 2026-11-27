@@ -91,7 +91,7 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 - 입력 액션은 `IA_` 뒤에 키 이름이 아니라 **하는 일**을 붙인다. (`IA_StartMove`, `IA_SelectArhat1`)
 - 서버 RPC는 `Server`, 클라이언트 RPC는 `Client`로 시작한다. (`ServerPossessArhat`, `ClientOnUnpossessed`)
 - 이펙트 에셋 변수는 `...System`, 만들어 둔 이펙트 컴포넌트 배열은 `...Components`로 짓는다.
-- C++ 이름을 바꾸면 `DefaultEngine.ini`의 `[CoreRedirects]`에 옛 이름을 함께 적는다. (아래 기술 노트 참고)
+- C++ 이름을 바꾸면 `DefaultEngine.ini`의 `[CoreRedirects]`에 옛 이름을 함께 적는다. (에셋에 저장된 값이 사라지지 않게)
 
 
 
@@ -111,7 +111,7 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 | 2026-11-25 (수) | 사거리 안 캐릭터를 잇는 이펙트, 갈 수 없는 곳에서 고스트 숨기기 |
 | 2026-11-26 (목) | MoveComponent로 이동 지점 설정과 이동, 캐릭터 사이 좁은 틈 차단 |
 | 2026-11-27 (금) | A 키 공격 사거리, 이동 거리 제한, 이동 범위 데칼 머티리얼 |
-| 2026-11-28 (토) | 이동 가능 범위 데칼(MoveRangeComponent), 전체 코드와 이름 정리, README 보강 |
+| 2026-11-28 (토) | 이동 가능 범위 데칼(MoveRangeComponent), 전체 코드와 이름 정리, README와 기술 노트 새로 작성 |
 
 ---
 
@@ -198,11 +198,14 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 - 전체 코드 정리: 접근 지정자 정리(외부에서 쓰는 것만 public), 긴 함수를 기능별 함수로 나눔
 - 이름 정리: 입력 액션을 키 이름 대신 하는 일로 (`IA_ArhatS` → `IA_SelectDestination`), 함수 이름 (`StartSetTarget` → `BeginSelectDestination`)
 - 오타 수정: `ArhatWarith` → `ArhatWraith`, `IA_ArhatMouxeXY` → `IA_CameraMoveMouse`
-- 에셋 값이 사라지지 않도록 CoreRedirects 추가 (기술 노트 참고)
+- 에셋 값이 사라지지 않도록 CoreRedirects 추가
+- Wraith 블루프린트, 애니메이션 에셋과 폴더 이름의 `Warith` 오타 수정, 옛 태그로 저장된 에셋 다시 저장 `df206d3` `76bdce9`
 
 **문서**
 - 붙어 선 캐릭터에서 출발하면 경로가 꺾이는 문제의 원인과 해결 방향 정리 (아직 구현 안 함) `7498c88`
 - README에 소개, 조작법, 실행 방법, 폴더 구조, 이름 짓기 규칙 추가 `fcb40f1`
+- 개발일지를 커밋 날짜 기준으로 다시 정리 `df206d3`
+- 기술 노트를 처음부터 다시 작성: 전체 구조와 한 턴 흐름도, 멀티플레이 실행 위치, 이동, 좁은 틈 차단, 이동 범위 데칼, 사거리, 빔 이펙트 규칙, 알려진 문제
 
 
 
@@ -210,331 +213,342 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 
 # 기술 노트
 
-## C++ 이름을 바꿔도 에셋 값 유지하기 (CoreRedirects)
+구현하면서 정한 구조와 이유, 실제로 겪은 문제와 해결 방법을 정리한다.
 
-### 문제
+| # | 주제 | 한 줄 요약 |
+|---|---|---|
+| 1 | [전체 구조](#1-전체-구조) | 어떤 클래스가 무엇을 맡고, 한 턴이 어떤 순서로 흘러가는지 |
+| 2 | [멀티플레이: 어디서 실행되나](#2-멀티플레이-어디서-실행되나) | 서버가 하는 일, 조종하는 클라이언트만 하는 일 |
+| 3 | [이동 (MoveComponent)](#3-이동-movecomponent) | 경로 미리보기 → 확정 → 이동, 도착할 수 없는 곳 처리, 이동 거리 제한 |
+| 4 | [좁은 틈으로 경로가 생기지 않게 하기](#4-좁은-틈으로-경로가-생기지-않게-하기) | 캐릭터 캡슐을 내비게이션 장애물로 등록 |
+| 5 | [이동 가능 범위 데칼 (MoveRangeComponent)](#5-이동-가능-범위-데칼-moverangecomponent) | 경로 길이 기준 범위 계산, 계단 모양 없애기 |
+| 6 | [사거리 (RangeComponent)](#6-사거리-rangecomponent) | 전용 콜리전 프리셋, 범위 안 캐릭터를 빔으로 잇기 |
+| 7 | [나이아가라 빔 이펙트 규칙](#7-나이아가라-빔-이펙트-규칙) | 코드가 이펙트에 위치를 넘기는 방법 |
+| 8 | [알려진 문제와 할 일](#8-알려진-문제와-할-일) | 아직 해결하지 않은 것 |
 
-C++에서 `UPROPERTY` 변수, 클래스, 구조체 이름을 바꾸면 블루프린트와 데이터 에셋에 **옛 이름으로 저장된 값이 사라진다.** 예를 들어 `IA_ArhatS`를 `IA_SelectDestination`으로 바꾸면 데이터 에셋에 지정해 둔 입력 액션이 비어 버린다.
+---
 
-### 해결
+## 1. 전체 구조
 
-`Config/DefaultEngine.ini`의 `[CoreRedirects]`에 옛 이름과 새 이름을 적는다. 에셋을 불러올 때 엔진이 옛 이름을 새 이름으로 바꿔 읽는다.
+### 클래스 역할
 
-```ini
-[CoreRedirects]
-; 클래스
-+ClassRedirects=(OldName="/Script/Samsara.ArhatWarith",NewName="/Script/Samsara.ArhatWraith")
-; 구조체 (앞의 F는 빼고 적는다)
-+StructRedirects=(OldName="/Script/Samsara.ArhatClass",NewName="/Script/Samsara.ArhatClassEntry")
-; 변수 (클래스 이름.옛 변수 이름 → 새 변수 이름)
-+PropertyRedirects=(OldName="/Script/Samsara.DA_ArhatInput.IA_ArhatS",NewName="IA_SelectDestination")
+| 분류 | 클래스 | 맡은 일 |
+|---|---|---|
+| 게임 규칙 | `PvPGameMode` | 2명이 모두 들어오고 아라한을 골랐으면 매치 시작, 팀별 시작 위치 배정, 아라한 스폰 |
+| | `PvPPlayerStart` | 팀 번호를 가진 시작 위치. 한 번 쓰이면 `IsSpawned`로 표시 |
+| 플레이어 | `PvPPlayerController` | 내 아라한 목록(`Arhats`, 복제) 보관, 숫자 키/버튼으로 빙의 요청 |
+| | `PvPPlayerState` | 고른 아라한의 게임플레이 태그 목록(`ArhatTags`) |
+| | `PvPHUD`, `PvPMainMenu`, `ArhatsBox` | 아라한 선택 버튼 UI |
+| 캐릭터 | `BaseCharacter` | 모든 아라한의 부모. 탑다운 카메라, 입력, 아래 컴포넌트를 가짐 |
+| | `ArhatAurora`, `ArhatWraith` | 개별 아라한 |
+| 컴포넌트 | `MoveComponent` | 경로 미리보기, 목적지 확정, 경로 따라 이동 |
+| | `MoveRangeComponent` | 이번 턴에 갈 수 있는 범위를 바닥 데칼로 표시 |
+| | `RangeComponent` | 공격 사거리 원, 범위 안 캐릭터를 빔으로 이어 표시 |
+| 액터 | `GhostActor` | 목적지에 놓는 반투명 미리보기 캐릭터. 자기 `RangeComponent`를 가짐 |
+| 데이터 | `DA_ArhatClass` | 태그 → 아라한 블루프린트 클래스 표 |
+| | `DA_ArhatInput`, `DA_PCInput` | 입력 매핑과 입력 액션 묶음 |
+| | `SamsaraGameInstance` | `DA_ArhatClass`를 들고 태그로 클래스를 찾아 줌 |
+
+### 한 턴의 흐름
+
+```mermaid
+flowchart TD
+    A[매치 시작<br/>PvPGameMode::HandleMatchHasStarted] --> B[팀 시작 위치에 아라한 스폰<br/>PC의 Arhats에 저장, 0번 빙의]
+    B --> C[숫자 키 / 버튼으로 아라한 고르기<br/>ServerPossessArhat]
+    C --> D[S: 목적지 고르기 시작<br/>BeginSelectDestination + 이동 범위 표시]
+    D --> E[커서를 따라 경로 이펙트와 고스트 갱신<br/>매 틱 UpdateDestinationPreview]
+    E -->|A| F[고스트 위치 기준 공격 사거리 표시]
+    E -->|좌클릭| G[목적지 확정<br/>ConfirmDestination, 이동 범위 숨김]
+    G --> H[Space: 이동 시작<br/>StartMove]
+    H --> I[PathPoints를 하나씩 따라 이동<br/>매 틱 UpdateMove]
+    I --> J[도착<br/>FinishMove: 이펙트 정리, 자기 장애물 다시 켜기]
 ```
 
-- `/Script/Samsara`는 모듈 이름이다. 클래스 이름 앞의 `U`, `A`, `F`는 빼고 적는다.
-- 게임플레이 태그는 `Config/DefaultGameplayTags.ini`에 따로 적는다.
-  ```ini
-  +GameplayTagRedirects=(OldTagName="Synergy.A.Warith",NewTagName="Synergy.A.Wraith")
-  ```
+### 아라한이 스폰되기까지
 
-### 바꾼 뒤에 할 일
+1. `PvPPlayerState::ArhatTags`에 고른 아라한 태그(`Synergy.A.Aurora` 등)가 들어간다.
+2. `ReadyToStartMatch`: 플레이어 2명, 이동 중인 플레이어 0명, 모두 `ArhatTags`가 비어 있지 않으면 시작.
+3. `HandleMatchHasStarted`: 플레이어마다 같은 팀의 `PvPPlayerStart`를 찾고, 태그마다 `SamsaraGameInstance::GetArhatClass`로 클래스를 얻어 스폰한다.
+4. 스폰한 아라한 목록을 `ServerSetArhats`로 컨트롤러에 넘기고 0번 아라한에 빙의한다.
 
-1. 에디터를 닫고 빌드한 뒤 다시 연다. (ini와 클래스 이름 변경은 라이브 코딩으로 반영되지 않음)
-2. 관련 블루프린트와 데이터 에셋을 열어 값이 그대로인지 확인하고 **저장**한다. 저장하면 새 이름으로 기록된다.
-3. 블루프린트 **에셋 이름**(예: `BP_ArhatWarith`)은 CoreRedirects 대상이 아니다. 콘텐츠 브라우저에서 우클릭 → **Rename**으로 바꾸고, 폴더 우클릭 → **Fix Up Redirectors**를 실행한다.
-4. 모든 에셋을 다시 저장한 뒤에는 리다이렉트 줄을 지워도 되지만, 남겨 두어도 문제는 없다.
+---
 
+## 2. 멀티플레이: 어디서 실행되나
 
-## 이동 경로가 캐릭터 사이 좁은 틈을 지나가지 않게 하기
+리슨 서버 1대1이다. **게임 결과에 영향을 주는 것은 서버**, **화면에만 보이는 미리보기는 조종하는 클라이언트**에서 한다.
+
+| 하는 일 | 실행 위치 | 이유 |
+|---|---|---|
+| 매치 시작, 아라한 스폰, 팀 배정 | 서버 | 게임 규칙 |
+| 빙의 (`ServerPossessArhat`) | 서버 | 빙의는 서버에서만 가능. 인덱스와 유효성을 서버에서 다시 검사 |
+| 경로 미리보기, 고스트, 경로 이펙트 | 조종하는 클라이언트 | 커서는 그 플레이어만 가짐. `IsLocalController()`일 때만 갱신. 고스트는 복제하지 않음 |
+| 이동 가능 범위 데칼 | 조종하는 클라이언트 | 표시 전용 |
+| 실제 이동 | 조종하는 클라이언트 → 서버 | `AddMovementInput`을 넣으면 CharacterMovement가 이동을 서버로 보내고 복제 |
+| 클라이언트 길찾기 | 클라이언트 | `bAllowClientSideNavigation=True` (DefaultEngine.ini). 없으면 클라이언트에 내비메시가 없음 |
+
+복제하는 값: `PvPPlayerController::Arhats`, `BaseCharacter::TeamId`.
+
+### 겪은 문제
+
+**1. `OnRep_Arhats`에서 크러쉬**
+`Arhats` 배열이 캐릭터 액터보다 먼저 복제되면 아직 받지 못한 자리가 `null`이다. 그 상태로 버튼 아이콘을 읽다가 크러쉬가 났다.
+→ 배열에 `null`이 하나라도 있으면 기다린다. 나머지 캐릭터가 도착하면 OnRep이 다시 불린다.
+
+**2. 리슨 서버 호스트는 OnRep이 불리지 않는다**
+OnRep은 값을 받는 쪽(클라이언트)에서만 불린다. 그래서 호스트용으로 `ServerSetArhats`에서 메뉴 초기화를 직접 부른다.
+
+**3. 빙의가 풀릴 때 클라이언트 쪽 표시가 남음**
+`UnPossessed`는 서버에서 불리는데, 이동 범위 데칼은 클라이언트 화면에 있다. Client RPC(`ClientOnUnpossessed`)를 보내 클라이언트에서 숨긴다.
+
+---
+
+## 3. 이동 (MoveComponent)
+
+### 세 단계
+
+| 단계 | 함수 | 하는 일 |
+|---|---|---|
+| 고르기 | `BeginSelectDestination` | 고스트 생성, 자기 장애물 끄기, 틱 켜고 미리보기 함수 연결 |
+| 확정 | `ConfirmDestination` | 고스트가 있으면 지금 경로를 목적지로 확정, 틱 끄기 |
+| 이동 | `StartMove` | 고스트 제거, 1번 지점부터 이동 함수 연결 |
+
+**틱은 필요할 때만 켜고, 실행할 함수는 델리게이트로 바꾼다.** 컴포넌트는 평소 틱이 꺼져 있다(`bStartWithTickEnabled = false`). 틱에서는 `TickFunction`(싱글캐스트 델리게이트)에 연결된 함수 하나만 실행한다. 고르는 중에는 `UpdateDestinationPreview`, 이동 중에는 `UpdateMove`가 연결된다. 상태마다 `if` 분기를 늘어놓지 않아도 된다.
+
+### 경로 만들기 (`BuildPreviewPath`)
+
+커서가 장애물 위, 다른 캐릭터 안처럼 **도착할 수 없는 곳**을 가리켜도 그 근처까지는 경로를 보여 준다. 세 번 시도한다.
+
+| 순서 | 방법 | 이럴 때 성공 |
+|---|---|---|
+| 1 | 커서 위치로 바로 `FindPathToLocationSynchronously` | 대부분. 도착할 수 없으면 엔진이 **가장 가까운 곳까지의 부분 경로**를 돌려줌 |
+| 2 | `ProjectPointToNavigation`으로 커서를 넓은 범위(`UnreachableProjectExtent` 300, 300, 500)에서 가장 가까운 내비메시로 옮긴 뒤 길찾기 | 큰 상자 위, 캐릭터 한가운데 |
+| 3 | `NavigationRaycast`로 캐릭터에서 커서 방향으로 가다 막히는 지점까지 | 근처에 내비메시가 전혀 없을 때 |
+
+셋 다 실패하면 **이전 미리보기를 그대로 둔다.** 경로가 순간 사라졌다 나타나는 깜빡임이 없다.
+
+### 이동 거리 제한 (`TrimPathToLength`)
+
+한 턴에 갈 수 있는 거리 = `GetMaxSpeed()`(MaxWalkSpeed). 경로가 이보다 길면 **경로를 따라 정확히 그 거리 지점에서** 자른다.
+
+```
+누적 길이 L, 구간 길이 d인 구간에서 L + d > Max 가 되면
+Alpha = (Max - L) / d
+마지막 지점 = Lerp(구간 시작, 구간 끝, Alpha)   → 그 뒤 지점은 버림
+```
+
+자른 경로의 총길이는 정확히 MaxWalkSpeed가 되고, 마지막 지점은 커서 쪽으로 갈 수 있는 가장 먼 곳이 된다. 고스트는 이 마지막 지점에 놓인다.
+
+### 경로 이펙트 (`UpdatePathEffects`)
+
+- 지점이 N개면 구간은 N-1개. 구간마다 빔 이펙트 하나.
+- 매 틱 새로 만들지 않고, **부족하면 만들고 남으면 지우고 나머지는 위치만 바꾼다.**
+- 바닥에 묻히지 않게 `PathEffectHeightOffset`(10)만큼 띄운다.
+
+### 이동 (`UpdateMove`)
+
+- `PathPoints[0]`은 출발 위치라서 1번 지점부터 향한다.
+- 지금 지점과의 평면 거리가 `AcceptanceRadius`(30) 이하면 다음 지점으로.
+- `AddMovementInput`은 한 프레임짜리 입력이라 매 틱 넣는다.
+- 마지막 지점에 닿으면 `FinishMove`: 틱 끄기, 이펙트와 경로 정리, 자기 장애물 다시 켜기.
+
+### 겪은 문제
+
+| 문제 | 원인 | 해결 |
+|---|---|---|
+| 이펙트를 줄이는 `while`이 끝나지 않음 | 반복 안에서 배열이 줄지 않음 | `Pop()`으로 꺼내 배열이 줄게 함 |
+| 빈 배열에서 `Pop` 크러쉬 | 지점이 0개일 때 구간 수가 -1 | `FMath::Max(Num - 1, 0)` |
+| 배열 범위 밖 접근 | 지점 수와 이펙트 수가 어긋난 채로 인덱스 접근 | 개수를 먼저 맞춘 뒤 같은 개수만큼 반복 |
+| 스플라인 경로가 꼬임 | 스플라인이 지점 사이를 곡선으로 보간하며 꺾이는 곳에서 비틀림 | 스플라인을 버리고 구간마다 직선 빔 이펙트 사용 |
+
+---
+
+## 4. 좁은 틈으로 경로가 생기지 않게 하기
 
 ### 목표
 
-`UMoveComponent`가 `UNavigationSystemV1::FindPathToLocationSynchronously`로 만드는 `PathPoints`가
-
-- 캐릭터와 캐릭터 사이
-- 캐릭터와 벽(장애물) 사이
-
-의 틈이 **캐릭터 한 명의 폭보다 좁으면** 그 틈을 지나가지 않게 한다.
+캐릭터와 캐릭터 사이, 캐릭터와 벽 사이의 틈이 **캐릭터 한 명의 폭보다 좁으면** 경로가 그 틈을 지나가지 않게 한다.
 
 ### 원리
 
-경로는 내비메시(바닥에 깔린 초록색 영역) 위에서만 만들어진다. 그래서 "지나가면 안 되는 곳"을 내비메시에서 지우면 경로도 그곳을 피해 간다.
+경로는 내비메시 위에서만 만들어진다. **지나가면 안 되는 곳을 내비메시에서 지우면** 경로도 피해 간다.
 
-- **벽 쪽**: 내비메시는 벽에서 **Agent Radius**만큼 떨어진 곳까지만 깔린다. 벽 사이 틈이 `Agent Radius × 2`보다 좁으면 내비메시가 끊겨 경로가 생기지 않는다.
-- **캐릭터 쪽**: 기본적으로 움직이는 캐릭터는 내비메시에 영향을 주지 않는다. 그래서 캐릭터 캡슐을 **다이내믹 장애물**로 등록해 캐릭터 자리에 내비메시 구멍을 뚫는다. 이 구멍은 엔진이 자동으로 **Agent Radius만큼 넓혀 준다** (`RecastNavMeshGenerator.cpp`의 `MarkDynamicArea`). 그래서 구멍 반지름 = 캡슐 반지름 + Agent Radius가 되고, 두 캐릭터 몸 사이가 캐릭터 한 명의 폭보다 좁으면 구멍끼리 이어져 경로가 막힌다.
+- **벽**: 내비메시는 벽에서 Agent Radius만큼 떨어져 깔린다. 틈이 `Agent Radius × 2`보다 좁으면 끊긴다. (엔진 기본 동작)
+- **캐릭터**: 캡슐을 다이내믹 장애물로 등록해 내비메시에 구멍을 뚫는다. 엔진이 구멍을 Agent Radius만큼 넓혀 주므로(`RecastNavMeshGenerator.cpp`의 `MarkDynamicArea`) 구멍 반지름 = 캡슐 34 + Agent Radius 35 = **약 69**. 두 캐릭터 몸 사이가 한 명 폭보다 좁으면 구멍끼리 이어져 막힌다.
 
-### 1. 프로젝트 설정
+캐릭터 크기가 달라도 괜찮다. 구멍 반지름이 각자 캡슐 반지름 + Agent Radius라서, 큰 캐릭터는 그만큼 큰 구멍을 뚫는다.
 
-**Project Settings → Engine → Navigation Mesh → Runtime → Runtime Generation = `Dynamic Modifiers Only`**
+### 설정
 
-- 실행 중에 캐릭터 위치(장애물)를 내비메시에 반영하기 위해 필요하다.
-- `Dynamic`보다 가볍다. 장애물 표시만 실시간으로 다시 계산한다.
-- `Config/DefaultEngine.ini`에 이렇게 저장된다.
+**1. 프로젝트 설정**: Navigation Mesh → Runtime Generation = `Dynamic Modifiers Only`
 
 ```ini
 [/Script/NavigationSystem.RecastNavMesh]
 RuntimeGeneration=DynamicModifiersOnly
 ```
 
-- 바꾼 뒤에는 **Build → Build Paths**로 내비메시를 다시 만들고 맵을 저장한다. 실행 중 장애물을 덧입히는 데 필요한 데이터가 빌드할 때 함께 만들어진다.
+실행 중에 장애물만 다시 계산한다(`Dynamic`보다 가벼움). 바꾼 뒤 **Build → Build Paths**를 하고 맵을 저장한다.
 
-### 2. Agent Radius = 캐릭터 캡슐 반지름
+**2. Agent Radius = 캡슐 반지름**: 레벨의 RecastNavMesh-Default → Agent Radius. 현재 캡슐 34 / 88, Agent Radius 35.
 
-레벨의 **RecastNavMesh-Default** 액터 → **생성 → 에이전트 반경(Agent Radius)**
-
-- 캐릭터 캡슐 반지름과 같게 맞춘다. 현재 값: 캡슐 반지름 **34**, Agent Radius **35**.
-- 캡슐 크기는 `BP_ArhatAurora` 등의 **클래스 디폴트 → CapsuleComponent → 캡슐 반경 / 캡슐 절반 높이**에서 확인한다 (현재 34 / 88).
-- 값을 바꾸면 **Build Paths**를 다시 실행한다.
-
-### 3. 캐릭터 캡슐을 장애물로 등록 (`BaseCharacter.cpp` 생성자)
+**3. 캡슐을 장애물로 등록**: `BaseCharacter` 생성자
 
 ```cpp
-#include "Components/CapsuleComponent.h"
-#include "NavAreas/NavArea_Null.h"
-
-// ACharacter는 시작할 때 캡슐의 CanEverAffectNavigation을 이 값으로 덮어쓴다. (기본 false)
-// 이 값을 켜야 아래 캡슐 장애물 설정이 실제로 내비메시에 반영된다.
-bCanAffectNavigationGeneration = true;
+bCanAffectNavigationGeneration = true;                                     // 가장 중요 (아래 주의 1)
 GetCapsuleComponent()->SetCanEverAffectNavigation(true);
-GetCapsuleComponent()->bDynamicObstacle = true;   // 충돌 형태 대신 "장애물 영역"으로 내비메시에 반영
-GetCapsuleComponent()->SetAreaClassOverride(UNavArea_Null::StaticClass());
+GetCapsuleComponent()->bDynamicObstacle = true;                            // 충돌 형태 대신 장애물 영역으로 반영
+GetCapsuleComponent()->SetAreaClassOverride(UNavArea_Null::StaticClass()); // 지나갈 수 없는 영역
 ```
 
-| 코드 | 역할 |
-|---|---|
-| `bCanAffectNavigationGeneration = true` | **가장 중요.** 폰이 내비게이션에 영향을 줄 수 있게 한다. 아래 "주의할 점 1" 참고 |
-| `SetCanEverAffectNavigation(true)` | 캡슐이 내비게이션에 영향을 줄 수 있게 한다 |
-| `bDynamicObstacle = true` | 캡슐을 충돌 형태가 아니라 "장애물 영역(모디파이어)"으로 내비메시에 반영한다. 콜리전 설정과 상관없이 반영된다 |
-| `SetAreaClassOverride(UNavArea_Null)` | 장애물 영역을 "지나갈 수 없는 영역"으로 만든다 |
+`UNavArea_Obstacle`은 "웬만하면 피하는" 영역이라 다른 길이 없으면 지나간다. 캐릭터는 통과할 수 없으므로 `UNavArea_Null`을 쓴다. 충돌과 이동에는 영향이 없고 내비메시에만 구멍이 뚫린다.
 
-`UNavArea_Null` 대신 `UNavArea_Obstacle`을 쓰면 완전히 막지 않고 "웬만하면 피하는" 영역이 된다 (다른 길이 없으면 지나감). 턴제에서는 캐릭터를 통과할 수 없으므로 `UNavArea_Null`을 쓴다.
+**4. 움직이는 캐릭터 자신은 빼기**: `MoveComponent::SetOwnerNavObstacle`
 
-캡슐의 충돌과 캐릭터 이동에는 영향이 없다. 내비메시에만 구멍이 뚫린다.
+자기 캡슐도 구멍을 뚫어서 출발점이 구멍 안이 된다. 목적지를 고르기 시작할 때 끄고(`BeginSelectDestination`), 이동이 끝나면 켠다(`FinishMove`). 턴제라 한 번에 한 캐릭터만 움직이므로 이 방식으로 충분하다.
 
-### 4. 움직이는 캐릭터 자신은 장애물에서 빼기 (`MoveComponent.cpp`)
+### 확인 방법
 
-3번을 적용하면 **이동하려는 캐릭터 자신**의 캡슐도 구멍을 뚫는다. 출발 위치가 구멍 안이 되어 경로를 못 찾으므로, 목적지를 고르는 동안과 이동하는 동안에는 자기 캡슐을 장애물에서 뺀다. 턴제라 한 번에 한 캐릭터만 움직이므로 이 방식으로 충분하다.
+- 에디터 뷰포트에서 `P`: 내비메시가 초록색으로 보인다.
+- 플레이 중 콘솔 `show Navigation`: 다른 캐릭터 주변에 반지름 약 69인 빈 원이 보여야 한다.
+- 리슨 서버에서는 **경로를 만드는 쪽(조종하는 클라이언트) 창**에서 본다.
 
-```cpp
-void UMoveComponent::BeginSelectDestination()
-{
-	// ...
-	SetOwnerNavObstacle(false);   // 자기 장애물 끄기
-}
+### 주의할 점
 
-void UMoveComponent::FinishMove()
-{
-	// ...
-	SetOwnerNavObstacle(true);    // 이동이 끝나면 다시 켜기
-}
+1. **캡슐 설정만으로는 반영되지 않는다.** `ACharacter::UpdateNavigationRelevance()`가 시작할 때 캡슐 값을 `bCanAffectNavigationGeneration`(기본 false)으로 덮어쓴다. 블루프린트 클래스 디폴트 → 폰 → "내비게이션 생성에 영향 주기 가능"으로 확인할 수 있다.
+2. **생성자 변경은 라이브 코딩으로 반영되지 않는다.** 에디터를 닫고 빌드한 뒤 다시 연다.
+3. **블루프린트에서 바꾼 값이 우선한다.** 이상하면 해당 항목 옆 되돌리기 화살표로 기본값으로 돌린다.
+4. **반영에 몇 프레임 걸린다.** 장애물을 켜고 끈 직후 한두 프레임은 이전 상태로 경로가 나올 수 있다. (5번 데칼의 `StartDelay`가 있는 이유)
+5. **사거리 스피어는 구멍을 뚫지 않는다.** Pawn을 Overlap만 하기 때문이다. 나중에 Pawn을 **Block**하는 컴포넌트를 캐릭터에 붙이면 그것도 구멍을 뚫으니 주의.
 
-void UMoveComponent::SetOwnerNavObstacle(bool bEnable)
-{
-	if (ABaseCharacter* BaseCharacter = GetOwner<ABaseCharacter>())
-	{
-		BaseCharacter->GetCapsuleComponent()->SetCanEverAffectNavigation(bEnable);
-	}
-}
-```
-
-목적지를 고르다 중간에 그만두는 경우(빙의 해제 등)에도 다시 `true`로 돌려놓아야 한다.
-
-### 5. 확인 방법
-
-- **에디터 뷰포트에서 `P` 키**: 내비메시가 초록색으로 보인다. 벽에서 조금 떨어진 곳부터 깔리는지, 좁은 통로가 끊겨 있는지 본다.
-- **플레이 중 콘솔(`~`)에 `show Navigation`**: 다른 캐릭터 주변에 둥근 구멍(반지름 약 69 = 캡슐 34 + Agent Radius 35)이 보여야 한다.
-- 리슨 서버로 테스트할 때는 **경로를 만드는 쪽(조종하는 클라이언트) 창**에서 확인한다.
-
-### 주의할 점 (실제로 겪은 문제)
-
-1. **캡슐 설정만으로는 반영되지 않는다.**
-   `ACharacter::UpdateNavigationRelevance()`가 게임 시작 시 `CapsuleComponent->SetCanEverAffectNavigation(bCanAffectNavigationGeneration)`을 호출해서, 생성자에서 켠 캡슐 설정을 **폰의 값(기본 false)으로 덮어쓴다.** 그래서 반드시 `bCanAffectNavigationGeneration = true`를 함께 켜야 한다.
-   에디터에서는 블루프린트 **클래스 디폴트 → 폰 → 내비게이션 생성에 영향 주기 가능**에 체크되어 있는지로 확인할 수 있다.
-
-2. **생성자 변경은 라이브 코딩으로 반영되지 않는다.**
-   에디터를 닫고 빌드한 뒤 다시 열어야 블루프린트 기본값에 반영된다.
-
-3. **블루프린트에서 값을 바꾸면 그 값이 우선한다.**
-   `BP_BaseCharacter`, `BP_ArhatAurora` 등에서 캡슐의 내비게이션 항목을 직접 바꾸면 생성자 값이 무시된다. 이상하면 해당 항목 옆의 되돌리기 화살표로 기본값으로 돌린다.
-
-4. **반영에 몇 프레임 걸린다.**
-   장애물을 켜고 끄면 내비메시가 몇 프레임에 걸쳐 갱신된다. 목적지 고르기를 시작한 직후 한두 프레임은 이전 상태로 경로가 나올 수 있다.
-
-5. **좁아 보여도 경로가 생기는 통로가 있다면** 그 통로가 실제로는 `Agent Radius × 2`(약 70)보다 넓은 것이다. 막고 싶으면 장애물 간격을 줄이거나 Agent Radius를 키운다.
-
-6. **사거리 스피어(`RangeComponent`)는 내비메시에 영향을 주지 않는다.**
-   폰 전체가 내비게이션에 영향을 줄 수 있게 되었지만, 컴포넌트는 콜리전이 켜져 있고 Pawn을 **막을(Block)** 때만 내비메시에 반영된다. 사거리 스피어는 Pawn과 겹치기(Overlap)만 하므로 구멍을 뚫지 않는다. 나중에 Pawn을 막는 컴포넌트를 캐릭터에 추가하면 그 컴포넌트도 내비메시에 구멍을 뚫으니 주의한다.
-
-7. **붙어 서 있는 캐릭터에서 출발하면 경로가 출발 직후 꺾인다.** 아래 "출발점이 다른 캐릭터의 내비게이션 구멍 안에 있는 문제" 참고.
-
-
-
-## 출발점이 다른 캐릭터의 내비게이션 구멍 안에 있는 문제
-
-> 상태: 원인과 해결 방향만 정리함. **아직 구현하지 않음.**
-
-### 증상
-
-두 캐릭터가 어깨를 붙이고 서 있을 때, 그중 한 캐릭터의 이동 경로(PathPoints)가 **출발하자마자 한 번 꺾인 뒤** 목적지로 간다. 이동 가능 범위 데칼(`MoveRangeComponent`)도 출발 근처가 이상하게 계산될 수 있다.
+### 남은 문제: 붙어 선 캐릭터에서 출발하면 경로가 꺾임 (아직 구현 안 함)
 
 ![출발 직후 꺾이는 이동 경로](Docs/Images/path_kink_start_in_obstacle.webp)
 
-- 위쪽에 두 캐릭터가 붙어 서 있고, 그중 오른쪽 캐릭터에서 오른쪽 아래 고스트(목적지)까지 파란 경로가 그려져 있다.
-- 경로가 캐릭터 바로 아래에서 한 번 꺾인다. 직선으로 가면 되는 거리인데, 출발점이 옆 캐릭터의 구멍 안이라 먼저 구멍 밖으로 빠져나왔다가 목적지로 향하는 것이다.
-- 스폰할 때 같은 팀이 한 지점에 몰려 서로 밀려나면서 이렇게 붙어 서게 되었다. 아래쪽 두 캐릭터도 같은 상태다.
-- 하늘색 영역은 이동 가능 범위 데칼이다. 벽(흰 상자)과 캐릭터 주변이 파여 있는 것은 정상이다.
+위쪽에 붙어 선 두 캐릭터 중 오른쪽 캐릭터에서 고스트까지 가는 경로가 출발 직후 한 번 꺾인다.
 
-### 원인
+**원인**: 붙어 선 두 캐릭터의 중심 거리(캡슐 지름 약 68)가 구멍 반지름(약 69)보다 작다. 즉 **서로 상대의 구멍 안에 서 있다.** 출발점이 구멍 안이면 길찾기가 출발점을 가장 가까운 내비메시로 옮긴 뒤 경로를 만들어서 꺾인다. 지금은 스폰할 때 같은 팀이 한 지점에 몰려 서로 밀려나면서 이렇게 된다.
 
-캐릭터 캡슐을 내비게이션 장애물(`NavArea_Null`)로 등록했고, 엔진은 그 구멍을 Agent Radius만큼 넓힌다.
+**핵심 규칙**: "캐릭터는 항상 내비메시가 허용한 자리에 서 있어야 한다."
+정상 이동으로는 이 규칙이 깨지지 않는다. 경로의 모든 지점이 다른 캐릭터의 구멍 밖이고, 구멍은 서로 대칭이기 때문이다. 그래서 **규칙이 깨질 수 있는 곳에서만** 보정하면 된다.
 
-- 구멍 반지름 = 캡슐 반지름 34 + Agent Radius 35 = **약 69**
-- 붙어 서 있는 두 캐릭터의 중심 사이 거리 = 캡슐 지름 = **약 68**
-
-즉 붙어 서 있는 두 캐릭터는 **서로 상대방의 구멍 안에 서 있다.** 내비메시는 칸(복셀) 단위로 만들어져 구멍이 계산보다 조금 더 크게 잡히므로 더 확실하게 안쪽에 들어간다.
-
-출발 위치가 구멍(지나갈 수 없는 영역) 안이면, 길찾기(`FindPathToLocationSynchronously`)는 **가장 가까운 내비메시 지점으로 출발점을 옮긴 뒤** 경로를 만든다. 그래서 경로가 먼저 옆 캐릭터의 구멍 밖으로 빠져나온 다음 목적지로 꺾인다.
-
-확인 방법: 플레이 중 콘솔에서 `show Navigation`을 켜고, 이동하려는 캐릭터의 발밑이 옆 캐릭터의 구멍(초록색이 비어 있는 원) 안에 있는지 본다.
-
-### 핵심: "모든 캐릭터는 서로의 구멍 밖에 있다"는 규칙
-
-이 문제는 결국 **캐릭터가 내비메시가 금지한 자리에 서 있게 되는 것**이다. 그런데 정상적인 이동으로는 이 규칙이 깨지지 않는다.
-
-- 이동 경로는 내비메시 위에서만 만들어지므로, 경로의 **모든 지점은 다른 캐릭터의 구멍 바깥**이다.
-- 캐릭터는 그 경로를 따라 걷다가 멈추므로, 멈춘 자리도 구멍 바깥이다. `AcceptanceRadius`만큼 일찍 멈춰도 여전히 경로 위라서 바깥이다.
-- 구멍은 서로 대칭이다. 내 중심이 상대 구멍 밖이면, 상대 중심도 내 구멍 밖이다.
-
-그래서 **처음에 한 번 규칙이 지켜지면 이동해도 계속 지켜진다.** 규칙을 깰 수 있는 곳만 찾아서 막으면 된다.
-
-### 규칙이 깨질 수 있는 곳
-
-| 경우 | 현재 상태 | 대응 |
-|---|---|---|
-| **스폰** | `PvPGameMode::HandleMatchHasStarted`가 같은 팀 아라한을 **한 지점(`SpawnTransform`)에** 스폰하고, `AdjustIfPossibleButAlwaysSpawn`이 겹친 캐릭터를 밀어내면서 서로 딱 붙는다. **지금 생기는 꺾임의 원인.** | 스폰 직후 위치 보정, 또는 처음부터 떨어뜨려 스폰 (약 110 이상 간격) |
-| **강제 이동** (넉백, 끌어당기기, 순간이동 스킬) | 아직 없음 | 강제 이동이 끝난 직후 위치 보정 |
-| **충돌로 밀림, 멈출 때 미끄러짐** | 경로가 서로를 피해 가서 거의 없음 | 목적지 고르기 시작 시 안전장치로 보정 |
-
-### 해결 방안 (추천)
-
-규칙 하나를 정하고, 규칙이 깨질 수 있는 곳에서만 지키게 한다.
-
-> **규칙: 캐릭터는 항상 내비메시가 허용한 자리에 서 있어야 한다.**
-
-1. **위치 보정 함수 만들기**
-   `BaseCharacter`에 "지금 자리가 허용된 자리가 아니면 가장 가까운 허용 위치로 옮기는" 함수를 둔다. `UNavigationSystemV1::ProjectPointToNavigation`으로 가장 가까운 내비메시 지점을 찾아 그 자리로 옮긴다.
-2. **규칙이 깨질 수 있는 곳에서 호출**
-   - 스폰 직후 (한 지점에 몰아서 스폰하더라도 보정됨)
-   - 나중에 넉백 같은 강제 이동 스킬을 만들면, 그 이동이 끝난 직후
-3. **안전장치**
-   그래도 출발점이 구멍 안이면, 목적지 고르기를 시작할 때(`MoveComponent::BeginSelectDestination`) 한 번 보정한다. 꺾인 경로를 그리는 대신 캐릭터를 먼저 허용 위치로 옮기는 것이다.
-
-이렇게 하면 앞으로 스킬이 늘어나도 **"강제로 위치를 바꾸는 곳에서는 보정 함수를 부른다"**는 규칙 하나만 지키면 된다.
-
-주의: 보정 함수는 내비메시가 다른 캐릭터의 구멍을 이미 반영한 뒤에 불러야 정확하다. 스폰 직후처럼 장애물이 막 생긴 시점에는 내비메시 갱신에 몇 프레임 걸리므로, 짧게 기다린 뒤(타이머 등) 보정한다.
-
-### 검토했지만 쓰지 않는 방법
-
-| 방법 | 쓰지 않는 이유 |
+| 규칙이 깨지는 곳 | 대응 |
 |---|---|
-| **스폰 간격만 두기** | 스폰은 해결되지만, 나중에 강제 이동 스킬이 생기면 같은 문제가 다시 생긴다. 근본 해결이 아니라 증상 하나만 막는다. (위치 보정과 함께 쓰는 것은 좋음) |
-| **장애물 구멍을 작게 만들기** | 붙어 있는 캐릭터가 서로의 구멍 밖이 되지만, 그만큼 좁은 틈으로 경로가 다시 생긴다. "캐릭터 사이 좁은 틈을 지나가지 않게 하기"에서 해결한 문제가 되살아난다. |
-| **가까운 캐릭터는 잠시 장애물에서 빼기** | 그 캐릭터를 뚫고 지나가는 경로가 생길 수 있다. |
-| **`NavArea_Obstacle`(비용만 높은 영역)로 바꾸기** | 출발점 문제는 줄지만, 다른 길이 없으면 좁은 틈을 다시 지나간다. |
-| **그대로 두기** | 실제 이동도 꺾인 경로를 따라가므로 동작은 일관되지만, 보기에 어색하고 이동 범위 계산도 출발 근처가 부정확해진다. |
+| 스폰 (지금 꺾임의 원인) | 스폰 직후 위치 보정 |
+| 넉백, 끌어당기기, 순간이동 (아직 없음) | 강제 이동이 끝난 직후 위치 보정 |
+| 그 밖의 예외 | 목적지 고르기를 시작할 때 안전장치로 보정 |
 
+**해결 계획**: `BaseCharacter`에 위치 보정 함수를 만든다. `ProjectPointToNavigation`으로 가장 가까운 허용 위치를 찾아 옮긴다. 장애물이 반영된 뒤에 불러야 하므로 스폰 직후에는 타이머로 조금 기다린다.
 
+**쓰지 않는 방법**
 
-## 이동 가능 범위 데칼 (`MoveRangeComponent`)
+| 방법 | 이유 |
+|---|---|
+| 스폰 간격만 넓히기 | 강제 이동 스킬이 생기면 다시 생김 (보정과 함께 쓰는 것은 좋음) |
+| 구멍을 작게 | 좁은 틈으로 경로가 다시 생김 |
+| 가까운 캐릭터를 잠시 장애물에서 빼기 | 그 캐릭터를 뚫고 가는 경로가 생김 |
+| `NavArea_Obstacle`로 바꾸기 | 다른 길이 없으면 좁은 틈을 지나감 |
+
+---
+
+## 5. 이동 가능 범위 데칼 (MoveRangeComponent)
 
 ### 하는 일
 
-목적지를 고르는 동안(S 키) 캐릭터가 이번 턴에 **실제로 이동할 수 있는 범위**를 바닥에 칠해서 보여 준다.
+S를 누르면 이번 턴에 **실제로 갈 수 있는 범위**를 바닥에 칠한다. 기준은 `MoveComponent`와 같다: **경로 구간 길이 합 ≤ MaxWalkSpeed**. 그래서 단순한 원이 아니라 벽이나 캐릭터 뒤쪽이 파인 모양이 된다. 목적지를 확정하거나 빙의가 풀리면 숨긴다.
 
-- 기준은 `MoveComponent`의 이동 규칙과 같다: 내비게이션 경로를 찾고 **PathPoints 구간 길이의 합이 MaxWalkSpeed 이내**면 이동 가능.
-- 그래서 단순한 원이 아니라 **벽이나 다른 캐릭터 뒤쪽이 파인 모양**이 된다. 직선거리로는 가까워도 돌아가야 해서 경로가 길어지는 곳은 빠진다.
-- 좌클릭으로 목적지를 확정하거나 빙의가 풀리면 숨긴다.
+### 계산 순서
 
-### 동작 방식
+1. 캐릭터 주변(한 변 = 2 × MaxWalkSpeed인 사각형)을 `GridResolution`(48) × 48칸으로 나눈다.
+2. 칸마다 길찾기를 해서 이동 가능 여부를 정한다 (`IsCellReachable`).
+   - 부분 경로면 불가.
+   - 경로 끝점이 칸에서 0.75칸보다 멀면 불가. (칸이 벽이나 캐릭터 안이라 길찾기가 끝점을 옮긴 경우)
+   - 경로 길이 합이 반지름 이하면 가능.
+3. 칸 결과로 `TextureResolution`(256) × 256 텍스처를 만들어 데칼 머티리얼의 `RangeMask`에 넘긴다.
 
-1. 캐릭터 주변(반지름 = MaxWalkSpeed인 사각형)을 `GridResolution x GridResolution` 칸으로 나눈다.
-2. 칸마다 `FindPathToLocationSynchronously`로 경로를 찾고, 위 규칙으로 이동 가능 여부를 정한다.
-   - 칸이 벽이나 다른 캐릭터 안이면 길찾기가 끝점을 가까운 바닥으로 옮기는데, 끝점이 칸에서 멀면 그 칸은 이동 불가로 본다.
-3. 칸 결과로 `TextureResolution x TextureResolution` 텍스처를 만들어(이동 가능 = 흰색) 데칼 머티리얼의 `RangeMask` 파라미터에 넘긴다.
-4. 턴제라 고르는 동안 주변이 변하지 않으므로 **Tick 없이 한 번에 계산**한다. 단, S를 누를 때 자기 캡슐의 내비게이션 장애물을 끄는 것이 내비메시에 반영되기까지 몇 프레임 걸리므로, **`StartDelay`(0.1초) 뒤 타이머로** 계산한다. 바로 계산하면 자기 구멍 안에서 출발하는 셈이라 전부 이동 불가로 나온다.
-5. 계산 시간은 출력 로그에 `MoveRange: 48 x 48 cells computed in ... ms`로 남는다.
+**Tick 없이 한 번만 계산한다.** 턴제라 고르는 동안 주변이 변하지 않는다. 다만 자기 장애물 해제가 내비메시에 반영될 때까지 `StartDelay`(0.1초) 기다렸다가 타이머로 계산한다. 바로 계산하면 자기 구멍 안에서 출발하는 셈이라 전부 불가로 나온다.
 
-데칼 UV 방향: 데칼을 아래로 돌린 회전(Pitch -90)에서 **U = 월드 X, V = 월드 Y**다. (엔진 `DeferredDecal.usf`에서 UV = 데칼 로컬 (Z, Y))
+계산 시간은 출력 로그에 `MoveRange: 48 x 48 cells computed in ... ms`로 나온다.
 
-### 문제: 범위가 동그랗지 않고 계단처럼 네모나게 보임
+### 문제: 범위가 계단처럼 네모나게 보임
 
-**원인**: 처음에는 칸 결과(32 x 32)를 **그대로 텍스처로** 썼다. 텍스처 한 픽셀이 칸 하나라서 경계가 칸 모양대로 계단이 되었다.
+| 원인 | 해결 |
+|---|---|
+| 칸 결과(32 × 32)를 그대로 텍스처로 써서 경계가 칸 모양 | 검사 칸(48)과 표시 텍스처(256)를 분리. 텍스처를 키워도 길찾기 횟수는 그대로 |
+| 원 경계에 걸친 칸이 빠져 바깥 원이 깎임 | 바깥 원은 칸과 상관없이 **픽셀 단위로** 거리를 재서 자름 (경계 1픽셀 안티에일리어싱) |
+| 원 바로 바깥 칸이 비어 보간된 경계가 원 안쪽에 생김 | 원 바깥 **1.5칸까지** 검사. 원 밖 칸은 같은 방향 원 안쪽(반지름 99%) 지점으로 검사 |
+| 장애물 쪽 경계의 직각 모서리 | bilinear 보간 + 작은 블러(`EdgeRoundness`) 후 `SmoothStep(0.4, 0.6)`으로 다시 또렷하게 |
 
-그 밖에 겹친 원인:
-- 원 경계에 걸친 칸은 칸 중심이 원 밖이라는 이유로 빠져서, 바깥 원이 안쪽으로 깎였다.
-- 원 바로 바깥 칸이 비어 있어서, 칸 사이를 보간한 경계가 **원보다 안쪽**에 생기는 곳이 있었다. 그 부분은 원이 아니라 칸 모양을 따라가서 각져 보였다.
+흐리게만 하면 경계가 뿌옇고, 그대로 쓰면 계단이라 둘을 섞는다.
 
-### 해결 (코드에서 처리, 현재 적용됨)
+데칼 UV 방향: 데칼을 아래로 돌린 회전(Pitch -90)에서 **U = 월드 X, V = 월드 Y**. (엔진 `DeferredDecal.usf`)
 
-**1. 경로 검사 칸과 표시 텍스처를 분리한다.**
+### 데칼 머티리얼 (`M_MoveRangeDecal`)
 
-| | 이전 | 지금 |
-|---|---|---|
-| 경로 검사 칸 (`GridResolution`) | 32 x 32 | 48 x 48 |
-| 표시 텍스처 (`TextureResolution`) | 32 x 32 (칸 그대로) | 256 x 256 (따로 계산) |
+- Material Domain `Deferred Decal`, Blend Mode `Translucent`
+- **Texture Sample Parameter 2D 하나, 이름은 정확히 `RangeMask`.** 이름이 다르면(`RangeMask1` 등) 코드가 텍스처를 못 넣어 기본 텍스처가 그대로 보인다. (실제로 겪음. 이름을 바꾸려면 컴포넌트의 `Mask Parameter Name`을 맞춘다)
+- 마스크의 R을 **색과 오파시티 둘 다**에 연결. 오파시티를 1로 두면 사각형 전체가 칠해진다.
+- Sampler Source `From texture asset`. 포인트 필터면 계단이 그대로 보인다.
 
-경로 탐색 횟수는 칸 수로만 정해지고 텍스처 크기와는 상관없다. 텍스처를 키워도 계산 비용은 거의 늘지 않는다.
-
-**2. 바깥 원은 칸과 상관없이 픽셀 단위로 정확하게 자른다.** (`RebuildMaskPixels`)
-
-텍스처 픽셀마다 데칼 중심에서의 거리를 재서 반지름 밖이면 지운다. 경계 1픽셀은 부드럽게 처리한다(안티에일리어싱).
-
-**3. 원 바깥 1.5칸까지 검사한다.** (`IsCellReachable`)
-
-원 밖의 칸은 같은 방향의 원 안쪽 지점(반지름의 99%)으로 검사한다. 원 바로 바깥까지 "이동 가능"으로 채워 두면 칸 경계가 원 밖으로 밀려나고, 실제 바깥 모양은 2번의 픽셀 단위 원이 정하게 된다.
-
-**4. 장애물 쪽 경계는 "흐리게 한 뒤 다시 또렷하게" 만든다.** (`RebuildMaskPixels`, `SampleReachable`)
-
-- 주변 4칸을 거리 비율로 섞어(bilinear) 부드럽게 만든다.
-- 가운데 + 상하좌우를 섞는 작은 블러를 더해 칸의 직각 모서리를 깎는다. 정도는 `EdgeRoundness`.
-- `SmoothStep(0.4, 0.6)`으로 0.5 근처에서 다시 또렷하게 자른다.
-- 흐리게만 하면 경계가 뿌옇고, 그대로 쓰면 계단 모양이라 둘을 섞는다.
-
-### 다른 방법: 머티리얼에서 처리
-
-코드 대신 데칼 머티리얼에서 같은 처리를 할 수도 있다.
-
-1. **원 자르기**: `TextureCoordinate` → `Subtract 0.5` → `Length` → `Multiply 2` → `SmoothStep(0.98, 1.0)` → `OneMinus` = 원 마스크
-2. **경계 다듬기**: `RangeMask`의 R → `SmoothStep(0.35, 0.65)`
-3. 둘을 곱해서 색과 오파시티에 연결한다.
-
-| | 머티리얼에서 처리 | 코드에서 처리 (현재) |
-|---|---|---|
-| 계산 위치 | GPU, 화면 픽셀마다 | CPU, 텍스처를 만들 때 한 번 |
-| 값 조절 | 머티리얼 에디터에서 바로 보며 조절 | 값을 바꾸고 다시 실행 |
-| 다른 머티리얼로 바꿀 때 | 그 머티리얼에도 같은 노드 필요 | 어떤 머티리얼이든 그대로 동작 |
-
-머티리얼 방식으로 바꾸면 코드는 칸 결과를 그대로 넘기는 단순한 형태로 되돌리면 된다(텍스처 크기 = 칸 수, `RebuildMaskPixels`는 칸 값 복사만, `SampleReachable` 삭제). 단 **3번(원 바깥 칸까지 검사)은 남겨야** 한다. 이 칸들이 빠지면 머티리얼에서 원으로 잘라도 가장자리가 안쪽으로 깎인다.
-
-### 데칼 머티리얼 설정 (`M_MoveRangeDecal`)
-
-- **Material Domain**: `Deferred Decal`, **Blend Mode**: `Translucent`
-- 마스크를 받는 노드는 **Texture Sample Parameter 2D** 하나만 두고, 이름을 정확히 **`RangeMask`**로 한다.
-  - 이름이 다르면(예: `RangeMask1`, `RangeMask2`) 코드가 텍스처를 못 넣어서, 계산 결과 대신 노드에 지정된 기본 텍스처가 그대로 보인다. 실제로 겪은 문제.
-  - 이름을 바꾸기 싫으면 컴포넌트의 `Mask Parameter Name`을 노드 이름에 맞춘다.
-  - 노드에 지정한 기본 텍스처는 실행 중에 코드가 덮어쓰므로 **에디터 미리보기에만** 쓰인다.
-- 마스크의 **R** 출력을 색 곱하기와 **오파시티** 둘 다에 연결한다. 오파시티를 상수 1로 두면 이동할 수 없는 곳까지 데칼의 사각형 범위 전체가 칠해진다.
-- **Sampler Source**는 `From texture asset`으로 둔다. 코드가 텍스처를 부드러운 보간(bilinear)으로 만들어 넘기므로, 포인트 계열이면 계단이 그대로 보인다.
-- 블루프린트에서 **MoveRangeComponent → Decal Material**에 지정한다.
-
-### 추천 값 (MaxWalkSpeed 약 600 기준)
+### 추천 값 (MaxWalkSpeed 약 600)
 
 | 항목 | 값 | 이유 |
 |---|---|---|
-| Grid Resolution | 48 | 칸 하나가 약 25 단위로 캐릭터 반지름(34)보다 작아 지나갈 수 있는 틈을 놓치지 않음. 64면 경로 탐색이 약 1.8배 |
-| Texture Resolution | 256 | 화면에서 충분히 매끄러움. 512는 차이에 비해 다시 그리는 비용이 4배 |
-| Edge Roundness | 0.6 | 0.8 이상이면 캐릭터 한 명이 겨우 지나가는 좁은 통로가 메워져 보일 수 있음 |
-| Start Delay | 0.1 | 자기 장애물 해제가 반영되기를 기다리는 시간. 전부 이동 불가로 나오면 0.2로 |
-| Projection Depth | 200 | 캐릭터 중심(바닥에서 약 88 위)에서 바닥까지 닿음 |
+| Grid Resolution | 48 | 칸 약 25로 캐릭터 반지름(34)보다 작아 틈을 놓치지 않음. 64면 길찾기 약 1.8배 |
+| Texture Resolution | 256 | 충분히 매끄러움. 512는 비용 4배 |
+| Edge Roundness | 0.6 | 0.8 이상이면 좁은 통로가 메워져 보일 수 있음 |
+| Start Delay | 0.1 | 전부 불가로 나오면 0.2 |
+| Projection Depth | 200 | 캐릭터 중심(바닥에서 약 88)에서 바닥까지 닿음 |
 
-계산 시간 확인: 출력 로그의 `MoveRange: ... ms`를 본다. 10ms 이하면 그대로, 수십 ms라 멈칫하면 Grid Resolution을 낮춘다(칸 수의 제곱에 비례).
+계산이 10ms를 넘어 멈칫하면 Grid Resolution을 낮춘다(칸 수의 제곱에 비례).
 
+---
+
+## 6. 사거리 (RangeComponent)
+
+`USphereComponent`의 자식 클래스. 캐릭터와 고스트가 하나씩 가진다.
+
+### 전용 콜리전 프리셋 "Range"
+
+`Config/DefaultEngine.ini`에 오브젝트 채널 `Range`(GameTraceChannel1)와 프리셋 `Range`를 정의했다.
+
+| 상대 | 반응 | 이유 |
+|---|---|---|
+| Pawn | Overlap | 범위 안 캐릭터 감지 |
+| Range | Ignore | 사거리 원끼리 서로 감지하지 않게 |
+| 나머지 | Ignore | 벽, 커서 판정(Visibility) 등을 방해하지 않게 |
+
+기본 상태는 `NoCollision`이다. `EnableDetection()`을 불러야 `QueryOnly`로 켜지고, `DisableDetection()`으로 끄면 이펙트도 정리한다.
+
+### 범위 안 캐릭터 표시
+
+- 들어오면(`OnRangeBeginOverlap`) 캐릭터와 빔 이펙트를 **같은 인덱스로** 두 배열에 넣는다. 이펙트 생성에 실패해도 짝을 맞추려고 함께 넣는다.
+- 나가면 같은 인덱스의 캐릭터와 이펙트를 함께 지운다.
+- 매 틱 각 빔의 시작(나)과 끝(상대) 위치를 갱신한다.
+- 이펙트는 월드에 따로 만들어져 액터와 함께 사라지지 않으므로 `EndPlay`에서 정리한다.
+
+### A 키
+
+목적지를 골라 고스트가 있으면 **고스트 위치 기준**, 없으면 캐릭터 기준으로 사거리(`AttackRange`, 기본 600)를 설정한다. 이동한 뒤 누구를 칠 수 있는지 미리 보는 용도다.
+
+---
+
+## 7. 나이아가라 빔 이펙트 규칙
+
+경로 이펙트(`MoveComponent::PathEffectSystem`)와 사거리 연결 이펙트(`RangeComponent::TargetLinkEffectSystem`)는 같은 규칙을 따른다.
+
+- 나이아가라 시스템에 **Vector 타입 User 파라미터 `BeamStart`, `BeamEnd`**가 있어야 한다.
+- 코드는 `SetVariableVec3(TEXT("BeamStart"), 월드 좌표)`로 넣는다. (`User.` 접두사는 빼고 적는다)
+- `SpawnSystemAtLocation(..., bAutoDestroy=false)`로 만들고 코드가 직접 지운다.
+
+새 빔 이펙트를 만들 때 이 두 파라미터 이름만 맞추면 코드 수정 없이 바꿔 끼울 수 있다.
+
+---
+
+## 8. 알려진 문제와 할 일
+
+| 문제 | 영향 | 해결 방향 |
+|---|---|---|
+| 붙어 선 캐릭터에서 출발하면 경로가 꺾임 | 스폰 직후 같은 팀 캐릭터 | 4번의 위치 보정 함수 |
+| 목적지를 고르다가 다른 아라한으로 바꾸면 정리가 덜 됨 | 고스트와 경로 이펙트가 남고, 자기 장애물이 꺼진 채로 남음 | 빙의 해제 시 MoveComponent에 취소 함수(고스트, 이펙트 제거 + `SetOwnerNavObstacle(true)`) 호출 |
+| 캐릭터 자신의 `RangeComponent`는 감지가 꺼져 있음 | 고스트 없이 A를 누르면 원 크기만 바뀌고 범위 안 캐릭터가 표시되지 않음 | 빙의할 때 `EnableDetection()`, 해제할 때 `DisableDetection()` |
+| `ServerSetArhats`가 Server RPC | 클라이언트가 직접 불러 아라한 목록을 바꿀 수 있음 | 서버 전용 일반 함수로 바꾸기 |
+| 사거리 원이 디버그 형태로 보임 (`bHiddenInGame = false`) | 보기용 임시 | 원 데칼 머티리얼로 바꾸기 |
