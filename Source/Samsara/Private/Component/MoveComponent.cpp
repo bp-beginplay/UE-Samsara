@@ -32,9 +32,23 @@ void UMoveComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 
 void UMoveComponent::StartSetTarget()
 {
-	if (ABaseCharacter* Character = GetOwner<ABaseCharacter>())
-		Character->GetCapsuleComponent()->SetCanEverAffectNavigation(false);
+	ABaseCharacter* BaseCharacter = GetOwner<ABaseCharacter>();
+	APvPPlayerController* PC = Cast<APvPPlayerController>(BaseCharacter->GetController());
+
+	if (!IsValid(GhostActor))
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = PC;
+		SpawnParams.Instigator = BaseCharacter;
+		GhostActor = GetWorld()->SpawnActor<AGhostActor>(GhostActorClass, SpawnParams);
+		GhostActor->CopyMeshFrom(BaseCharacter->GetMesh());
+	}
+
+	BaseCharacter->GetCapsuleComponent()->SetCanEverAffectNavigation(false);
+
 	SetComponentTickEnabled(true);
+	
+
 	OnTickFunc.BindUObject(this, &UMoveComponent::UpdateMovePreview);
 }
 
@@ -114,60 +128,43 @@ void UMoveComponent::UpdateMovePreview()
 	PathPoints = Path->PathPoints;
 
 	if (PathPoints.IsEmpty())
-	{
-		DestroyGhostActor();
-		DestroyPathEffects();
-	}
-	else
-	{
-		float Length = 0.f;
-		for (int32 i = 1; i < PathPoints.Num(); ++i)
-		{
-			Length += FVector::Dist(PathPoints[i - 1], PathPoints[i]);
-		}
-		if (Length > BaseCharacter->GetCharacterMovement()->GetMaxSpeed())
-		{
-			DestroyGhostActor();
-			DestroyPathEffects();
-			PathPoints.Empty();
-			return;
-		}
+		return;
 
-		if (!IsValid(GhostActor))
-		{
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Owner = PC;
-			SpawnParams.Instigator = BaseCharacter;
-			GhostActor = GetWorld()->SpawnActor<AGhostActor>(GhostActorClass, SpawnParams);
-			GhostActor->CopyMeshFrom(BaseCharacter->GetMesh());
-		}
+	float Length = 0.f;
+	for (int32 i = 1; i < PathPoints.Num(); ++i)
+	{
+		Length += FVector::Dist(PathPoints[i - 1], PathPoints[i]);
+	}
+	if (Length > BaseCharacter->GetCharacterMovement()->GetMaxSpeed())
+		return;
+
+	if(IsValid(GhostActor))
 		GhostActor->SetActorLocation(PathPoints.Last());
 
-		const int32 NumSegments = FMath::Max(PathPoints.Num() - 1, 0);
-		while (PathEffects.Num() < NumSegments)
+	const int32 NumSegments = FMath::Max(PathPoints.Num() - 1, 0);
+	while (PathEffects.Num() < NumSegments)
+	{
+		UNiagaraComponent* Effect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			this, PathEffect, PathPoints[PathEffects.Num()], FRotator::ZeroRotator, FVector(1.f), false, true);
+		PathEffects.Add(Effect);
+	}
+	while (PathEffects.Num() > NumSegments)
+	{
+		UNiagaraComponent* Effect = PathEffects.Pop();
+		if (IsValid(Effect))
 		{
-			UNiagaraComponent* Effect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-				this, PathEffect, PathPoints[PathEffects.Num()], FRotator::ZeroRotator, FVector(1.f), false, true);
-			PathEffects.Add(Effect);
+			Effect->DestroyComponent();
 		}
-		while (PathEffects.Num() > NumSegments)
-		{
-			UNiagaraComponent* Effect = PathEffects.Pop();
-			if (IsValid(Effect))
-			{
-				Effect->DestroyComponent();
-			}
-		}
+	}
 
-		const FVector Offset(0.f, 0.f, 10.f);
-		for (int32 i = 0; i < PathEffects.Num(); ++i)
+	const FVector Offset(0.f, 0.f, 10.f);
+	for (int32 i = 0; i < PathEffects.Num(); ++i)
+	{
+		UNiagaraComponent* Effect = PathEffects[i];
+		if (IsValid(Effect))
 		{
-			UNiagaraComponent* Effect = PathEffects[i];
-			if (IsValid(Effect))
-			{
-				Effect->SetVariableVec3(TEXT("BeamStart"), PathPoints[i] + Offset);
-				Effect->SetVariableVec3(TEXT("BeamEnd"), PathPoints[i + 1] + Offset);
-			}
+			Effect->SetVariableVec3(TEXT("BeamStart"), PathPoints[i] + Offset);
+			Effect->SetVariableVec3(TEXT("BeamEnd"), PathPoints[i + 1] + Offset);
 		}
 	}
 }

@@ -16,6 +16,7 @@ URangeComponent::URangeComponent()
 	PrimaryComponentTick.bStartWithTickEnabled = true;
 
 	SetCollisionProfileName(TEXT("Range"));
+	bHiddenInGame = false;
 }
 
 void URangeComponent::BeginPlay()
@@ -44,7 +45,6 @@ void URangeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 
 void URangeComponent::Active()
 {
-	SetSphereRadius(RangeRadius);
 	SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
 
@@ -114,4 +114,9 @@ void URangeComponent::ClearTargetLinkEffects()
 		}
 	}
 	TargetLinkEffects.Empty();
+}
+
+void URangeComponent::SetRange(float _Range)
+{
+	SetSphereRadius(_Range);
 }

@@ -17,6 +17,7 @@
 #include "PlayerController/PvPPlayerController.h"
 #include "Component/RangeComponent.h"
 #include "Component/MoveComponent.h"
+#include "Actor/GhostActor.h"
 
 #include "LogTest.h"
 
@@ -53,11 +54,9 @@ ABaseCharacter::ABaseCharacter()
 
 	MoveComponent = CreateDefaultSubobject<UMoveComponent>(TEXT("MoveComponent"));
 
-	// ACharacter는 시작할 때 캡슐의 CanEverAffectNavigation을 이 값으로 덮어쓴다. (기본 false)
-	// 이 값을 켜야 아래 캡슐 장애물 설정이 실제로 내비메시에 반영된다.
 	bCanAffectNavigationGeneration = true;
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
-	GetCapsuleComponent()->bDynamicObstacle = true;   // 충돌 형태 대신 "장애물 영역"으로 내비메시에 반영
+	GetCapsuleComponent()->bDynamicObstacle = true;
 	GetCapsuleComponent()->SetAreaClassOverride(UNavArea_Null::StaticClass());
 
 	//SpringArm->SocketOffset = FVector(0.f, 60.f, 70.f);
@@ -152,6 +151,15 @@ void ABaseCharacter::StartedSB()
 
 void ABaseCharacter::StartedA()
 {
+	AGhostActor* GhostActor = MoveComponent->GetGhostActor();
+	if (IsValid(GhostActor))
+	{
+		GhostActor->SetRange(600);
+	}
+	else
+	{
+		RangeComponent->SetRange(600);
+	}
 }
 
 void ABaseCharacter::StartedS()

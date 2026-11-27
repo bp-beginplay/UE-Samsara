@@ -64,4 +64,5 @@ private:
 	// Get/Set 함수
 public:
 	const TArray<FVector>& GetPathPoints() const { return PathPoints; }
+	AGhostActor* GetGhostActor() const { return GhostActor; }
 };

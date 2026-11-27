@@ -50,9 +50,6 @@ private:
 
 	// 변수
 private:
-	UPROPERTY(EditDefaultsOnly, Category = "Range", meta = (ClampMin = "0.0"))
-	float RangeRadius = 400.f;
-
 	UPROPERTY(EditDefaultsOnly, Category = "Effect")
 	TObjectPtr<UNiagaraSystem> TargetLinkEffect;
 	UPROPERTY(Transient)
@@ -61,6 +58,6 @@ private:
 
 	// Get/Set 함수
 public:
-	void SetRangeRadius(float NewRadius) { RangeRadius = NewRadius; }
-	float GetRangeRadius() const { return RangeRadius; }
+	TArray<TObjectPtr<ABaseCharacter>> GetArhats() const { return Arhats; }
+	void SetRange(float _Range);
 };

@@ -57,3 +57,8 @@ void AGhostActor::CopyMeshFrom(const USkeletalMeshComponent* SourceMesh)
 		}
 	}
 }
+
+void AGhostActor::SetRange(float _Range)
+{
+	RangeComponent->SetSphereRadius(_Range);
+}

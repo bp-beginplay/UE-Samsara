@@ -41,4 +41,5 @@ private:
 	// Get/Set 함수
 public:
 	USkeletalMeshComponent* GetGhostMesh() const { return GhostMesh; }
+	void SetRange(float _Range);
 };
