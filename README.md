@@ -99,45 +99,110 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 
 # 개발일지
 
-20261121
+날짜는 커밋 시각(한국 시간) 기준이다. 항목 끝의 `abc1234`는 그 작업이 들어간 커밋이다.
 
-1. 나이아가라 이펙트를 사용해서 공격 사거리내의 작들을 표시
-2. Spherecomponent의 자식 클래스인 rangecomponent클래스를 만들어서 사거리 기능 구현
+### 한눈에 보기
 
-20261122
+| 날짜 | 한 일 |
+|---|---|
+| 2026-11-20 (금) | GitHub 저장소 만들기 |
+| 2026-11-21 (토) | 프로젝트 첫 업로드, 사거리(RangeComponent), A/S 키 입력 |
+| 2026-11-22 (일) | 이동 경로를 이펙트로 표시, 고스트가 커서를 따라다니게 함 |
+| 2026-11-25 (수) | 사거리 안 캐릭터를 잇는 이펙트, 갈 수 없는 곳에서 고스트 숨기기 |
+| 2026-11-26 (목) | MoveComponent로 이동 지점 설정과 이동, 캐릭터 사이 좁은 틈 차단 |
+| 2026-11-27 (금) | A 키 공격 사거리, 이동 거리 제한, 이동 범위 데칼 머티리얼 |
+| 2026-11-28 (토) | 이동 가능 범위 데칼(MoveRangeComponent), 전체 코드와 이름 정리, README 보강 |
 
-1. 이동경로를 spline으로 표시하지 않고 effect로 표시하기 위해 MoveComponent를 만들었다.
+---
 
-20261125
+### 2026-11-20 (금)
 
-1\.	RangeComponent에서 범위내에 모든 캐릭터를 이어주는 이펙트 생성
+**추가**
+- GitHub 저장소 생성 (README, Unreal용 `.gitignore`) `b18891c`
 
-20261126
+---
 
-1. MoveComponent에서 이동 지점 설정과 이동 구현
-   - 커서 위치까지 내비게이션 경로(PathPoints)를 찾아 경로 구간마다 이펙트로 표시하고, 경로 끝에 고스트를 놓아 이동 지점을 미리 보여 준다.
-   - 좌클릭으로 이동 지점을 확정(ConfirmDestination)하고, 이동을 시작하면 PathPoints를 하나씩 따라 이동한다.
-2. 이동 경로(PathPoints)가 캐릭터 사이, 캐릭터와 벽 사이의 좁은 틈을 지나가지 않도록 내비게이션 설정 (아래 "기술 노트" 참고)
+### 2026-11-21 (토)
 
-20261127
+**추가**
+- UE 5.8 C++ 프로젝트 첫 업로드 `4e367f0` `8efbb3f` `c1b3bbc`
+  - 게임 기본 구조: `PvPGameMode`(2인 접속 시 시작, 팀별 `PvPPlayerStart`에 아라한 스폰), 플레이어 컨트롤러/스테이트(팀, 고른 아라한), 아라한 선택 HUD와 버튼, `TeamInterface`
+  - 아라한 `ArhatAurora`, `ArhatWraith`, 공통 부모 `BaseCharacter`(탑뷰 카메라, Enhanced Input)
+  - GitHub 기본 `.gitignore`와 마켓플레이스 에셋 제외 규칙 합치기, `Resource` 폴더 추가
+- `SphereComponent`의 자식 클래스 `RangeComponent`로 공격 사거리 구현 `8394906`
+- 나이아가라 이펙트로 공격 사거리 안의 적 표시 `8394906`
+- A 키(기본 공격 대상 정하기), S 키(이동 위치 정하기) 입력 추가 `e1cc43c`
 
-1. 이동 미리보기 경로가 MaxWalkSpeed보다 길면 경로를 따라 정확히 그 거리에서 잘라, 커서 쪽으로 갈 수 있는 가장 먼 지점까지 표시
-2. 실제 이동 가능 범위(경로 길이 기준)를 바닥에 표시하는 데칼 컴포넌트 `MoveRangeComponent` 구현 (아래 "기술 노트" 참고)
-3. 붙어 선 캐릭터에서 출발하면 경로가 꺾이는 문제의 원인과 해결 방향 정리 (아래 "기술 노트" 참고, 아직 구현 안 함)
+---
 
-20261128
+### 2026-11-22 (일)
 
-1. 전체 코드 정리
-   - 접근 지정자 정리 (외부에서 쓰는 것만 public, 나머지는 private), 변수는 getter로 노출
-   - 긴 함수를 기능별 함수로 나눔 (예: MoveComponent의 경로 만들기, 경로 자르기, 이펙트 갱신)
-2. 이름 정리와 오타 수정
-   - 입력 액션을 키 이름 대신 하는 일로 바꿈 (`IA_ArhatS` → `IA_SelectDestination`, `IA_ArhatSB` → `IA_StartMove` 등)
-   - 함수 이름 정리 (`StartSetTarget` → `BeginSelectDestination`, `SetTarget` → `ConfirmDestination`)
-   - 오타 수정 (`ArhatWarith` → `ArhatWraith`, `IA_ArhatMouxeXY` → `IA_CameraMoveMouse`)
-   - 에셋에 저장된 값이 사라지지 않도록 CoreRedirects 추가 (아래 "기술 노트" 참고)
-3. 정리하면서 찾은 버그 수정
-   - 아라한 6번 버튼이 잘못된 번호의 아라한을 고르던 문제
-   - `OnRep_Arhats`에서 아직 복제되지 않은 아라한을 써서 크러쉬가 나던 문제
+**추가**
+- 이동 경로를 스플라인 대신 나이아가라 이펙트로 표시 (`NavPathComponent`) `eca8e12`
+- 이동 지점을 고르는 동안 고스트(`GhostActor`)가 마우스를 따라다니게 함 `c6d4dfc`
+
+---
+
+### 2026-11-25 (수)
+
+**추가**
+- `RangeComponent`: 사거리 안의 모든 캐릭터를 이펙트로 이어 표시 `bf0ebd7`
+
+**수정**
+- 이동할 수 없는 지점을 가리키면 고스트를 없앰 `8029288`
+
+---
+
+### 2026-11-26 (목)
+
+**추가**
+- `MoveComponent`로 이동 지점 설정과 이동 구현 `e900435`
+  - 커서까지 내비게이션 경로(PathPoints)를 찾아 구간마다 이펙트로 표시하고, 경로 끝에 고스트를 놓아 미리 보여 줌
+  - 좌클릭으로 이동 지점 확정, Space로 PathPoints를 하나씩 따라 이동
+- 캐릭터 사이, 캐릭터와 벽 사이 좁은 틈으로 경로가 생기지 않게 함 `e900435` (기술 노트 참고)
+  - 캐릭터 캡슐을 내비게이션 장애물(`NavArea_Null`)로 등록, `bCanAffectNavigationGeneration` 켜기
+  - 내비메시 런타임 생성을 `Dynamic Modifiers Only`로 변경
+
+**정리**
+- 이전에 시험하던 경로 컴포넌트(`PathComponent`, `RouteComponent`, `NavPathComponent`, `NavMoveComponent`)를 `MoveComponent` 하나로 합침 `e900435`
+- README에 개발일지와 내비게이션 기술 노트 추가
+
+---
+
+### 2026-11-27 (금)
+
+**추가**
+- A 키로 공격 사거리 표시: 고스트가 있으면 고스트 위치, 없으면 캐릭터 위치 기준 `ca4b665`
+- 이동 범위 데칼 머티리얼 `M_MoveRangeDecal` 추가 `dc42787`
+
+**수정**
+- 고스트를 목적지 고르기를 시작할 때 미리 생성 `ca4b665`
+- 경로가 없거나 너무 길면 이전 미리보기를 그대로 유지 `ca4b665`
+- 미리보기 경로가 MaxWalkSpeed보다 길면 경로를 따라 정확히 그 거리에서 자름 (커서 쪽으로 갈 수 있는 가장 먼 지점까지 표시) `5873743`
+
+---
+
+### 2026-11-28 (토)
+
+**추가**
+- 실제 이동 가능 범위(경로 길이 합 ≤ MaxWalkSpeed)를 바닥에 칠하는 데칼 컴포넌트 `MoveRangeComponent` `7498c88` (기술 노트 참고)
+  - S 키로 표시, 목적지 확정이나 빙의 해제 때 숨김
+  - Tick 없이 짧은 지연 뒤 한 번만 계산
+  - 계단처럼 네모나게 보이던 경계를 둥글게 다듬음
+
+**수정**
+- 아라한 6번 버튼이 잘못된 번호의 아라한을 고르던 문제 `fcb40f1`
+- `OnRep_Arhats`에서 아직 복제되지 않은 아라한을 써서 크러쉬가 나던 문제 `fcb40f1`
+
+**정리** `fcb40f1`
+- 전체 코드 정리: 접근 지정자 정리(외부에서 쓰는 것만 public), 긴 함수를 기능별 함수로 나눔
+- 이름 정리: 입력 액션을 키 이름 대신 하는 일로 (`IA_ArhatS` → `IA_SelectDestination`), 함수 이름 (`StartSetTarget` → `BeginSelectDestination`)
+- 오타 수정: `ArhatWarith` → `ArhatWraith`, `IA_ArhatMouxeXY` → `IA_CameraMoveMouse`
+- 에셋 값이 사라지지 않도록 CoreRedirects 추가 (기술 노트 참고)
+
+**문서**
+- 붙어 선 캐릭터에서 출발하면 경로가 꺾이는 문제의 원인과 해결 방향 정리 (아직 구현 안 함) `7498c88`
+- README에 소개, 조작법, 실행 방법, 폴더 구조, 이름 짓기 규칙 추가 `fcb40f1`
 
 
 
