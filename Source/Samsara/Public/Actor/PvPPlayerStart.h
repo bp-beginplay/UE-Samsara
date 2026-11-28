@@ -9,7 +9,7 @@
 
 #include "PvPPlayerStart.generated.h"
 
-/** 팀이 정해진 PvP 시작 위치. 레벨에 배치하고 TeamId를 지정한다. */
+/** 팀이 정해진 PvP 시작 위치. 레벨에 배치하고 Team을 지정한다. */
 UCLASS()
 class SAMSARA_API APvPPlayerStart : public APlayerStart, public ITeamInterface
 {
@@ -18,8 +18,8 @@ class SAMSARA_API APvPPlayerStart : public APlayerStart, public ITeamInterface
 	// 변수
 private:
 	/** 이 시작 위치를 쓰는 팀. 레벨에서 지정한다. */
-	UPROPERTY(EditAnywhere)
-	int32 TeamId = INDEX_NONE;
+	UPROPERTY(EditAnywhere, Category = "Team")
+	ETeam Team = ETeam::None;
 	/** 이미 한 플레이어가 이 시작 위치를 쓰고 있는지. */
 	bool bSpawned = false;
 
@@ -31,6 +31,6 @@ public:
 	void SetSpawned(bool bNewSpawned) { bSpawned = bNewSpawned; }
 
 	// ITeamInterface
-	virtual int32 GetTeamId() const override { return TeamId; }
-	virtual void SetTeamId(int32 NewTeamId) override { TeamId = NewTeamId; }
+	virtual ETeam GetTeam() const override { return Team; }
+	virtual void SetTeam(ETeam NewTeam) override { Team = NewTeam; }
 };

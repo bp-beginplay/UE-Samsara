@@ -18,7 +18,8 @@
 | 이동 거리 제한 | 경로 길이가 MaxWalkSpeed를 넘으면 그 거리에서 경로를 자른다 |
 | 이동 가능 범위 | 실제로 갈 수 있는 범위를 바닥 데칼로 칠한다 (벽이나 캐릭터 뒤는 파임) |
 | 좁은 틈 차단 | 캐릭터 사이, 캐릭터와 벽 사이 좁은 틈으로는 경로가 생기지 않는다 |
-| 공격 사거리 | 사거리 원을 보여 주고, 범위 안의 캐릭터를 이펙트로 이어 표시한다 |
+| 공격 사거리 | 사거리 원을 보여 주고, 범위 안의 아군이 아닌 캐릭터를 이펙트로 이어 표시한다 |
+| 공격 | 사거리 안의 캐릭터를 대상으로 정하고, 이동이 끝나면(또는 제자리에서) 공격 애니메이션을 모든 플레이어 화면에 재생한다 |
 | 멀티플레이 | 리슨 서버 1대1. 팀별 시작 위치(PvPPlayerStart)에 아라한을 스폰한다 |
 
 
@@ -30,8 +31,8 @@
 | 마우스 | 카메라 이동 |
 | 1, 2 | 조종할 아라한 선택 |
 | S | 이동할 곳 고르기 시작 (경로 미리보기, 이동 가능 범위 표시) |
-| 마우스 왼쪽 클릭 | 이동할 곳 확정 |
-| Space | 확정한 곳으로 이동 |
+| 마우스 왼쪽 클릭 | 이동할 곳 확정. 고르는 중이 아니면 사거리 안의 캐릭터를 공격 대상으로 정함 |
+| Space | 확정한 곳으로 이동하고 도착하면 공격. 확정한 곳이 없으면 제자리에서 공격 |
 | A | 공격 사거리 표시 |
 
 키는 `Content/Data`의 입력 데이터 에셋(DA_ArhatInput, DA_PCInput)과 Input Mapping Context에서 바꿀 수 있다.
@@ -76,10 +77,11 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 | `Character` | BaseCharacter(모든 아라한의 부모: 카메라, 입력, 컴포넌트), ArhatAurora, ArhatWraith |
 | `Component` | MoveComponent(경로와 이동), MoveRangeComponent(이동 가능 범위 데칼), RangeComponent(사거리) |
 | `Data` | 아라한 클래스 목록, 입력 데이터 에셋 |
+| `Enum` | 게임에서 쓰는 enum (ETeam: 소속 팀) |
 | `GameInstance` | 게임플레이 태그로 아라한 클래스를 찾아 줌 |
 | `GameMode` | PvP 매치 시작 조건, 아라한 스폰 |
 | `HUD`, `UserWidget` | PvP 메인 메뉴, 아라한 선택 버튼 |
-| `Interface` | TeamInterface(같은 팀인지 판단) |
+| `Interface` | TeamInterface(팀 가져오기/정하기, 같은 팀인지 판단) |
 | `PlayerController`, `PlayerState` | 아라한 빙의, 팀, 선택한 아라한 목록 |
 
 에셋은 `Content` 아래 `Blueprint`, `Data`, `Maps`, `Assets`, `Resource`에 있다. 기술 노트에 쓰는 그림은 `Docs/Images`에 둔다.
@@ -111,7 +113,7 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 | 2026-11-25 (수) | 사거리 안 캐릭터를 잇는 이펙트, 갈 수 없는 곳에서 고스트 숨기기 |
 | 2026-11-26 (목) | MoveComponent로 이동 지점 설정과 이동, 캐릭터 사이 좁은 틈 차단 |
 | 2026-11-27 (금) | A 키 공격 사거리, 이동 거리 제한, 이동 범위 데칼 머티리얼 |
-| 2026-11-28 (토) | 이동 가능 범위 데칼(MoveRangeComponent), 전체 코드와 이름 정리, README와 기술 노트 새로 작성 |
+| 2026-11-28 (토) | 이동 가능 범위 데칼(MoveRangeComponent), 전체 코드와 이름 정리, README와 기술 노트 새로 작성, 팀 enum(ETeam), 공격 대상 설정과 공격 애니메이션 |
 
 ---
 
@@ -189,10 +191,21 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
   - S 키로 표시, 목적지 확정이나 빙의 해제 때 숨김
   - Tick 없이 짧은 지연 뒤 한 번만 계산
   - 계단처럼 네모나게 보이던 경계를 둥글게 다듬음
+- 공격 대상 설정과 공격 애니메이션 (기술 노트 참고)
+  - 좌클릭: 사거리(고스트가 있으면 고스트 기준) 안의 캐릭터를 `ServerSetAttackTarget`으로 서버에 대상으로 정함
+  - Space: 이동이 끝나면, 확정한 목적지가 없으면 바로 `ServerAttack` → 서버가 `MulticastPlayAttack`으로 모든 화면에 몽타주 재생
+  - Aurora 공격 애니메이션과 몽타주 `AM_Aurora_Attack` 추가
+- 팀을 숫자(`int32 TeamId`) 대신 enum `ETeam`(None, Team1, Team2)으로 표현 (`Source/Samsara/Public/Enum/Team.h`)
+  - 타입이 바뀌어 레벨에 저장된 값이 사라지므로 TestMap의 PvPPlayerStart에 Team 1, Team 2를 다시 지정
 
 **수정**
 - 아라한 6번 버튼이 잘못된 번호의 아라한을 고르던 문제 `fcb40f1`
 - `OnRep_Arhats`에서 아직 복제되지 않은 아라한을 써서 크러쉬가 나던 문제 `fcb40f1`
+- 사거리에 아군도 표시되던 문제: 사거리를 가진 캐릭터(고스트는 Instigator)와 같은 팀이면 대상에서 뺌
+- 고스트 사거리에서 `GetOwner<ABaseCharacter>()`가 nullptr이라 `IsAlly`에서 크러쉬가 나던 문제 (고스트는 Instigator로 팀 판단)
+- A 키로 캐릭터 자신의 사거리 감지도 켜서, 고스트 없이도 범위 안 캐릭터가 표시됨
+- 목적지를 확정한 뒤 좌클릭이 다시 목적지 확정으로 처리되던 문제 (확정 후에는 공격 대상 고르기로)
+- 커서 판정(Visibility)에 캐릭터가 걸리도록 Pawn 콜리전 프리셋의 Visibility 응답을 Block으로 변경 (Project Settings)
 
 **정리** `fcb40f1`
 - 전체 코드 정리: 접근 지정자 정리(외부에서 쓰는 것만 public), 긴 함수를 기능별 함수로 나눔
@@ -228,8 +241,9 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 | 4 | [좁은 틈으로 경로가 생기지 않게 하기](#4-좁은-틈으로-경로가-생기지-않게-하기) | 캐릭터 캡슐을 내비게이션 장애물로 등록 |
 | 5 | [이동 가능 범위 데칼 (MoveRangeComponent)](#5-이동-가능-범위-데칼-moverangecomponent) | 경로 길이 기준 범위 계산, 계단 모양 없애기 |
 | 6 | [사거리 (RangeComponent)](#6-사거리-rangecomponent) | 전용 콜리전 프리셋, 범위 안 캐릭터를 빔으로 잇기 |
-| 7 | [나이아가라 빔 이펙트 규칙](#7-나이아가라-빔-이펙트-규칙) | 코드가 이펙트에 위치를 넘기는 방법 |
-| 8 | [알려진 문제와 할 일](#8-알려진-문제와-할-일) | 아직 해결하지 않은 것 |
+| 7 | [공격](#7-공격) | 대상 설정은 서버, 애니메이션은 모든 화면 |
+| 8 | [나이아가라 빔 이펙트 규칙](#8-나이아가라-빔-이펙트-규칙) | 코드가 이펙트에 위치를 넘기는 방법 |
+| 9 | [알려진 문제와 할 일](#9-알려진-문제와-할-일) | 아직 해결하지 않은 것 |
 
 ---
 
@@ -240,11 +254,11 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
 | 분류 | 클래스 | 맡은 일 |
 |---|---|---|
 | 게임 규칙 | `PvPGameMode` | 2명이 모두 들어오고 아라한을 골랐으면 매치 시작, 팀별 시작 위치 배정, 아라한 스폰 |
-| | `PvPPlayerStart` | 팀 번호를 가진 시작 위치. 한 번 쓰이면 `IsSpawned`로 표시 |
+| | `PvPPlayerStart` | 팀(`ETeam`)을 가진 시작 위치. 한 번 쓰이면 `IsSpawned`로 표시 |
 | 플레이어 | `PvPPlayerController` | 내 아라한 목록(`Arhats`, 복제) 보관, 숫자 키/버튼으로 빙의 요청 |
 | | `PvPPlayerState` | 고른 아라한의 게임플레이 태그 목록(`ArhatTags`) |
 | | `PvPHUD`, `PvPMainMenu`, `ArhatsBox` | 아라한 선택 버튼 UI |
-| 캐릭터 | `BaseCharacter` | 모든 아라한의 부모. 탑다운 카메라, 입력, 아래 컴포넌트를 가짐 |
+| 캐릭터 | `BaseCharacter` | 모든 아라한의 부모. 탑다운 카메라, 입력, 공격, 아래 컴포넌트를 가짐 |
 | | `ArhatAurora`, `ArhatWraith` | 개별 아라한 |
 | 컴포넌트 | `MoveComponent` | 경로 미리보기, 목적지 확정, 경로 따라 이동 |
 | | `MoveRangeComponent` | 이번 턴에 갈 수 있는 범위를 바닥 데칼로 표시 |
@@ -289,9 +303,11 @@ flowchart TD
 | 경로 미리보기, 고스트, 경로 이펙트 | 조종하는 클라이언트 | 커서는 그 플레이어만 가짐. `IsLocalController()`일 때만 갱신. 고스트는 복제하지 않음 |
 | 이동 가능 범위 데칼 | 조종하는 클라이언트 | 표시 전용 |
 | 실제 이동 | 조종하는 클라이언트 → 서버 | `AddMovementInput`을 넣으면 CharacterMovement가 이동을 서버로 보내고 복제 |
+| 공격 대상 설정 (`ServerSetAttackTarget`) | 조종하는 클라이언트 → 서버 | 대상은 클라이언트가 고르고 서버에 저장 |
+| 공격 (`ServerAttack` → `MulticastPlayAttack`) | 서버 → 모든 머신 | 서버가 저장해 둔 대상을 공격하고, 애니메이션은 모든 플레이어 화면에 재생 |
 | 클라이언트 길찾기 | 클라이언트 | `bAllowClientSideNavigation=True` (DefaultEngine.ini). 없으면 클라이언트에 내비메시가 없음 |
 
-복제하는 값: `PvPPlayerController::Arhats`, `BaseCharacter::TeamId`.
+복제하는 값: `PvPPlayerController::Arhats`, `BaseCharacter::Team`. (`AttackTarget`은 서버에서만 쓰므로 복제하지 않음)
 
 ### 겪은 문제
 
@@ -521,10 +537,11 @@ S를 누르면 이번 턴에 **실제로 갈 수 있는 범위**를 바닥에 �
 | Range | Ignore | 사거리 원끼리 서로 감지하지 않게 |
 | 나머지 | Ignore | 벽, 커서 판정(Visibility) 등을 방해하지 않게 |
 
-기본 상태는 `NoCollision`이다. `EnableDetection()`을 불러야 `QueryOnly`로 켜진다. (지금은 고스트만 켬)
+기본 상태는 `NoCollision`이다. `EnableDetection()`을 불러야 `QueryOnly`로 켜진다. 고스트는 스폰할 때, 캐릭터는 A 키를 누를 때 켠다.
 
 ### 범위 안 캐릭터 표시
 
+- 들어온 캐릭터가 **아군이면 무시**한다. 팀은 사거리를 가진 액터의 `Instigator`로 판단한다. 캐릭터는 자기 자신이, 고스트는 고스트를 만든 캐릭터(`MoveComponent::SpawnGhostActor`에서 지정)가 Instigator다.
 - 들어오면(`OnRangeBeginOverlap`) 캐릭터와 빔 이펙트를 **같은 인덱스로** 두 배열에 넣는다. 이펙트 생성에 실패해도 짝을 맞추려고 함께 넣는다.
 - 나가면 같은 인덱스의 캐릭터와 이펙트를 함께 지운다.
 - 매 틱 각 빔의 시작(나)과 끝(상대) 위치를 갱신한다.
@@ -536,7 +553,41 @@ S를 누르면 이번 턴에 **실제로 갈 수 있는 범위**를 바닥에 �
 
 ---
 
-## 7. 나이아가라 빔 이펙트 규칙
+## 7. 공격
+
+### 흐름
+
+```
+조종하는 클라이언트
+  좌클릭 → 커서 아래 캐릭터가 사거리(고스트가 있으면 고스트 사거리) 안에 있으면
+           ServerSetAttackTarget(Target)        → 서버의 AttackTarget 설정
+  Space  → 확정한 목적지가 있으면 이동, 도착하면(MoveComponent::FinishMove) ServerAttack()
+           확정한 목적지가 없으면 바로 ServerAttack()
+서버
+  ServerAttack → AttackTarget이 유효하면 MulticastPlayAttack(AttackTarget)
+모든 머신 (서버 + 모든 클라이언트)
+  MulticastPlayAttack → 대상 쪽으로 몸을 돌리고(SetActorRotation, 즉시) AttackMontage 재생
+```
+
+### 왜 이렇게 나눴나
+
+- **대상과 공격은 서버**: 클라이언트가 결과를 정하면 조작할 수 있다. 공격 시점에는 대상을 매개변수로 받지 않고 서버에 저장한 `AttackTarget`만 쓴다.
+- **애니메이션은 Multicast**: 서버에서 부른 NetMulticast는 서버와 모든 클라이언트에서 한 번씩 실행된다. 리슨 서버 호스트도 한 번만 재생된다. 클라이언트에서 Multicast를 직접 부르면 그 클라이언트에서만 실행되니 반드시 Server RPC를 거친다.
+- **`AttackTarget`은 복제하지 않음**: 지금은 서버만 쓴다. 대상 표시 UI가 생기면 `COND_OwnerOnly`로 복제한다.
+
+### 몽타주 설정
+
+1. 공격 애니메이션 시퀀스 → 우클릭 → Create AnimMontage (예: `AM_Aurora_Attack`)
+2. 애님 블루프린트 AnimGraph에 `Slot 'DefaultSlot'` 노드가 있어야 몽타주가 보인다.
+3. 캐릭터 블루프린트 클래스 디폴트 → Attack → **Attack Montage**에 지정한다. 비어 있으면 회전만 하고 재생은 건너뛴다.
+
+### 커서로 캐릭터를 고르려면
+
+`GetUnderCursorHit`는 Visibility 채널로 판정한다. 기본 Pawn 프리셋은 Visibility를 Ignore라서 캐릭터가 걸리지 않으므로, Project Settings → Collision → Preset `Pawn`의 Visibility를 Block으로 바꿨다. (`DefaultEngine.ini`의 `+EditProfiles=(Name="Pawn",...)`)
+
+---
+
+## 8. 나이아가라 빔 이펙트 규칙
 
 경로 이펙트(`MoveComponent::PathEffectSystem`)와 사거리 연결 이펙트(`RangeComponent::TargetLinkEffectSystem`)는 같은 규칙을 따른다.
 
@@ -548,12 +599,15 @@ S를 누르면 이번 턴에 **실제로 갈 수 있는 범위**를 바닥에 �
 
 ---
 
-## 8. 알려진 문제와 할 일
+## 9. 알려진 문제와 할 일
 
 | 문제 | 영향 | 해결 방향 |
 |---|---|---|
 | 붙어 선 캐릭터에서 출발하면 경로가 꺾임 | 스폰 직후 같은 팀 캐릭터 | 4번의 위치 보정 함수 |
 | 목적지를 고르다가 다른 아라한으로 바꾸면 정리가 덜 됨 | 고스트와 경로 이펙트가 남고, 자기 장애물이 꺼진 채로 남음 | 빙의 해제 시 MoveComponent에 취소 함수(고스트, 이펙트 제거 + `SetOwnerNavObstacle(true)`) 호출 |
-| 캐릭터 자신의 `RangeComponent`는 감지가 꺼져 있음 | 고스트 없이 A를 누르면 원 크기만 바뀌고 범위 안 캐릭터가 표시되지 않음 | 빙의할 때 `EnableDetection()`, 해제할 때 감지를 끄고 이펙트를 지우는 함수를 만들어 호출 |
+| 캐릭터 자신의 사거리 감지를 끄지 않음 | A로 켠 뒤 다른 아라한으로 바꿔도 감지와 빔 이펙트가 남음 | 빙의 해제 시 감지를 끄고 이펙트를 지우는 함수를 만들어 호출 |
+| 서버가 공격을 검증하지 않음 | `ServerSetAttackTarget`, `ServerAttack`이 사거리와 적인지 확인하지 않아 클라이언트가 아무 캐릭터나 공격할 수 있음 | 서버에서 `IsAlly`, 실제 위치 기준 사거리 검사 |
+| 공격 뒤에도 `AttackTarget`이 남음 | 다음 이동이 끝날 때 같은 대상을 다시 공격 | 공격한 뒤 `SetAttackTarget(nullptr)` |
+| 데미지와 체력이 없음 | 공격 애니메이션만 재생됨 | 체력 변수(복제)와 타격 시점(AnimNotify)에서 서버가 데미지 적용 |
 | `ServerSetArhats`가 Server RPC | 클라이언트가 직접 불러 아라한 목록을 바꿀 수 있음 | 서버 전용 일반 함수로 바꾸기 |
 | 사거리 원이 디버그 형태로 보임 (`bHiddenInGame = false`) | 보기용 임시 | 원 데칼 머티리얼로 바꾸기 |

@@ -61,11 +61,11 @@ private:
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_Arhats)
 	TArray<ABaseCharacter*> Arhats;
 	/** 소속 팀. 게임모드가 시작 위치를 고를 때 정한다. (서버에만 있음) */
-	int32 TeamId = INDEX_NONE;
+	ETeam Team = ETeam::None;
 
 	// Get/Set 함수
 public:
 	// ITeamInterface
-	virtual int32 GetTeamId() const override { return TeamId; }
-	virtual void SetTeamId(int32 NewTeamId) override { TeamId = NewTeamId; }
+	virtual ETeam GetTeam() const override { return Team; }
+	virtual void SetTeam(ETeam NewTeam) override { Team = NewTeam; }
 };

@@ -48,7 +48,7 @@ void UMoveComponent::BeginSelectDestination()
 
 bool UMoveComponent::ConfirmDestination()
 {
-	if (!IsValid(GhostActor))
+	if (!IsValid(GhostActor) || bHasDestination)
 	{
 		return false;
 	}
@@ -309,6 +309,12 @@ void UMoveComponent::FinishMove()
 	TargetPointIndex = 0;
 
 	SetOwnerNavObstacle(true);
+
+	// 도착하면 정해 둔 공격 대상을 공격한다. (대상이 없으면 서버에서 무시)
+	if (ABaseCharacter* BaseCharacter = GetOwner<ABaseCharacter>())
+	{
+		BaseCharacter->ServerAttack();
+	}
 }
 
 // ======================================================================

@@ -9,6 +9,7 @@
 class USkeletalMeshComponent;
 class UMaterialInterface;
 class URangeComponent;
+class ABaseCharacter;
 
 /**
  * 이동 목적지에 캐릭터와 같은 메시로 표시하는 미리보기 액터.
@@ -50,4 +51,9 @@ private:
 	/** 목적지 기준 공격 사거리. 이동한 뒤 닿는 캐릭터를 미리 보여 준다. */
 	UPROPERTY(VisibleAnywhere, Category = "Range")
 	TObjectPtr<URangeComponent> RangeComponent;
+
+	// Get/Set 함수
+public:
+	/** 고스트(목적지) 사거리 안에 있는 아군이 아닌 캐릭터들. */
+	const TArray<TObjectPtr<ABaseCharacter>>& GetTargetsInRange() const;
 };

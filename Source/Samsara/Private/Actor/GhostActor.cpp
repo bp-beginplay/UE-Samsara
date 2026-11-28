@@ -67,3 +67,8 @@ void AGhostActor::SetRangeRadius(float InRadius)
 {
 	RangeComponent->SetRangeRadius(InRadius);
 }
+
+const TArray<TObjectPtr<ABaseCharacter>>& AGhostActor::GetTargetsInRange() const
+{
+	return RangeComponent->GetTargetsInRange();
+}

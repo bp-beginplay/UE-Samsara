@@ -70,4 +70,9 @@ private:
 	/** 범위 안 캐릭터마다 하나씩 만든 빔 이펙트. */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UNiagaraComponent>> TargetLinkEffectComponents;
+
+	// Get/Set 함수
+public:
+	/** 사거리 안에 있는 아군이 아닌 캐릭터들. */
+	const TArray<TObjectPtr<ABaseCharacter>>& GetTargetsInRange() const { return TargetsInRange; }
 };

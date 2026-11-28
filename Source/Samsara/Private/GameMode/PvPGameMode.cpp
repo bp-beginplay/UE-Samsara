@@ -33,7 +33,7 @@ AActor* APvPGameMode::ChoosePlayerStart_Implementation(AController* Player)
 		PlayerStart->SetSpawned(true);
 		if (APvPPlayerController* PC = Cast<APvPPlayerController>(Player))
 		{
-			PC->SetTeamId(PlayerStart->GetTeamId());
+			PC->SetTeam(PlayerStart->GetTeam());
 		}
 		return PlayerStart;
 	}
@@ -105,7 +105,7 @@ TArray<ABaseCharacter*> APvPGameMode::SpawnArhats(APvPPlayerController* PC, cons
 	}
 
 	const FTransform SpawnTransform = PlayerStart ? PlayerStart->GetActorTransform() : FTransform::Identity;
-	const int32 TeamId = PlayerStart ? PlayerStart->GetTeamId() : INDEX_NONE;
+	const ETeam Team = PlayerStart ? PlayerStart->GetTeam() : ETeam::None;
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = PC;
@@ -118,7 +118,7 @@ TArray<ABaseCharacter*> APvPGameMode::SpawnArhats(APvPPlayerController* PC, cons
 		{
 			continue;
 		}
-		Arhat->SetTeamId(TeamId);
+		Arhat->SetTeam(Team);
 		Arhats.Add(Arhat);
 	}
 	return Arhats;

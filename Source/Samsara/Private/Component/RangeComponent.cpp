@@ -67,7 +67,13 @@ void URangeComponent::SetRangeRadius(float InRadius)
 void URangeComponent::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	AddTarget(Cast<ABaseCharacter>(OtherActor));
+	// 팀은 사거리를 가진 캐릭터 기준으로 판단한다. 캐릭터는 자기 자신이, 고스트는 고스트를 만든 캐릭터가 Instigator다.
+	const AActor* Owner = GetOwner();
+	const ABaseCharacter* InstigatorCharacter = Owner ? Owner->GetInstigator<ABaseCharacter>() : nullptr;
+	if (InstigatorCharacter && !InstigatorCharacter->IsAlly(OtherActor))
+	{
+		AddTarget(Cast<ABaseCharacter>(OtherActor));
+	}
 }
 
 void URangeComponent::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,

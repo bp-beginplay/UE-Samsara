@@ -16,6 +16,7 @@ class UDA_ArhatInput;
 class URangeComponent;
 class UMoveComponent;
 class UMoveRangeComponent;
+class UAnimMontage;
 struct FInputActionValue;
 
 /** UI에 쓰는 아라한 이미지 묶음. */
@@ -35,9 +36,13 @@ struct FArhatIcons
  * 입력
  *  - 마우스 이동 : 카메라 이동
  *  - S           : 목적지 고르기 시작 (이동 미리보기 + 이동 가능 범위 표시)
- *  - 좌클릭      : 목적지 확정
- *  - 스페이스    : 확정한 목적지로 이동
+ *  - 좌클릭      : 목적지 확정. 목적지를 고르는 중이 아니면 사거리 안의 캐릭터를 공격 대상으로 정한다.
+ *  - 스페이스    : 확정한 목적지로 이동하고, 도착하면 공격 대상을 공격한다. 목적지가 없으면 제자리에서 공격한다.
  *  - A           : 공격 사거리 표시
+ *
+ * 공격
+ *  - 대상 설정(ServerSetAttackTarget)과 공격(ServerAttack)은 서버에서 하고,
+ *    공격 애니메이션(MulticastPlayAttack)은 모든 플레이어 화면에서 재생한다.
  */
 UCLASS()
 class SAMSARA_API ABaseCharacter : public ACharacter, public ITeamInterface
@@ -48,7 +53,7 @@ class SAMSARA_API ABaseCharacter : public ACharacter, public ITeamInterface
 public:
 	/** 카메라, 이동·사거리 컴포넌트를 만들고 캡슐을 내비게이션 장애물로 등록한다. */
 	ABaseCharacter();
-	/** TeamId를 복제한다. */
+	/** Team을 복제한다. */
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	/** 카메라 오프셋을 갱신한다. */
 	virtual void Tick(float DeltaTime) override;
@@ -67,9 +72,9 @@ private:
 	void OnCameraMove(const FInputActionValue& Value);
 	/** S: 목적지 고르기를 시작하고 이동 가능 범위를 표시한다. */
 	void OnSelectDestination();
-	/** 좌클릭: 목적지를 확정하고 이동 가능 범위를 숨긴다. */
+	/** 좌클릭: 목적지를 확정하고 이동 가능 범위를 숨긴다. 목적지를 고르는 중이 아니면 커서 아래 캐릭터를 공격 대상으로 정한다. */
 	void OnConfirmDestination();
-	/** 스페이스: 확정한 목적지로 이동을 시작한다. */
+	/** 스페이스: 확정한 목적지로 이동을 시작한다. 목적지가 없으면 제자리에서 공격한다. */
 	void OnStartMove();
 	/** A: 고스트가 있으면 고스트 기준, 없으면 캐릭터 기준으로 공격 사거리를 표시한다. */
 	void OnShowAttackRange();
@@ -80,6 +85,18 @@ private:
 	/** 빙의가 풀릴 때 조종하던 클라이언트에서 표시들을 정리한다. */
 	UFUNCTION(Reliable, Client)
 	void ClientOnUnpossessed();
+
+	// 공격 RPC
+public:
+	/** (서버) 공격할 대상을 정한다. 조종하는 클라이언트에서 호출한다. nullptr이면 대상을 지운다. */
+	UFUNCTION(Reliable, Server)
+	void ServerSetAttackTarget(ABaseCharacter* NewTarget);
+	/** (서버에서 호출 → 모든 머신에서 실행) 대상 쪽으로 몸을 돌리고 공격 몽타주를 재생한다. Target이 nullptr이면 방향은 그대로 둔다. */
+	UFUNCTION(Reliable, NetMulticast)
+	void MulticastPlayAttack(ABaseCharacter* Target);
+	/** (서버) 서버에 정해 둔 AttackTarget을 공격한다. 모든 플레이어 화면에 공격 애니메이션이 재생된다. 조종하는 클라이언트에서 호출한다. */
+	UFUNCTION(Reliable, Server)
+	void ServerAttack();
 
 	// 변수
 private:
@@ -112,6 +129,12 @@ private:
 	/** A 키로 표시하는 공격 사거리. */
 	UPROPERTY(EditDefaultsOnly, Category = "Range", meta = (ClampMin = "0.0"))
 	float AttackRange = 600.f;
+	/** 공격할 대상. 없으면 nullptr. */
+	UPROPERTY(VisibleInstanceOnly, Transient, Category = "Attack")
+	TObjectPtr<ABaseCharacter> AttackTarget;
+	/** 기본 공격 몽타주. 캐릭터 블루프린트에서 지정한다. */
+	UPROPERTY(EditDefaultsOnly, Category = "Attack")
+	TObjectPtr<UAnimMontage> AttackMontage;
 
 	// 데이터
 	/** 아라한 선택 버튼 등 UI에 쓰는 이미지. */
@@ -121,15 +144,19 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Data")
 	UDA_ArhatInput* InputData;
 	/** 소속 팀. 스폰할 때 게임모드가 정하고 모든 클라이언트에 복제한다. */
-	UPROPERTY(VisibleAnywhere, Replicated)
-	int32 TeamId = INDEX_NONE;
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "Team")
+	ETeam Team = ETeam::None;
 
 	// Get/Set 함수
 public:
 	/** UI에 쓰는 아라한 이미지. */
 	FArhatIcons GetArhatIcons() const { return ArhatIcons; }
+	/** 공격할 대상. 없으면 nullptr. */
+	ABaseCharacter* GetAttackTarget() const { return AttackTarget; }
+	/** 공격할 대상을 정한다. nullptr을 넣으면 대상을 지운다. */
+	void SetAttackTarget(ABaseCharacter* NewTarget) { AttackTarget = NewTarget; }
 
 	// ITeamInterface
-	virtual int32 GetTeamId() const override { return TeamId; }
-	virtual void SetTeamId(int32 NewTeamId) override { TeamId = NewTeamId; }
+	virtual ETeam GetTeam() const override { return Team; }
+	virtual void SetTeam(ETeam NewTeam) override { Team = NewTeam; }
 };
