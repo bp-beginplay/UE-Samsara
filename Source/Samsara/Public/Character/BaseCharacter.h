@@ -66,6 +66,11 @@ protected:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 	// 커스텀 함수
+public:
+	/** (서버) 서버에 정해 둔 AttackTarget을 공격한다. 모든 플레이어 화면에 공격 애니메이션이 재생된다. 조종하는 클라이언트에서 호출한다. (MoveComponent가 이동이 끝나면 호출) */
+	UFUNCTION(Reliable, Server)
+	void ServerAttack();
+
 private:
 	// 입력 처리
 	/** 마우스 이동량만큼 카메라 목표 위치를 옮긴다. */
@@ -79,24 +84,28 @@ private:
 	/** A: 고스트가 있으면 고스트 기준, 없으면 캐릭터 기준으로 공격 사거리를 표시한다. */
 	void OnShowAttackRange();
 
+	// 카메라
 	/** 카메라 오프셋을 목표 위치(CameraTargetOffset)로 부드럽게 옮긴다. */
 	void UpdateCameraOffset(float DeltaTime);
 
+	// 공격
+	/** 커서 아래 캐릭터가 지금 공격 사거리 안에 있으면 서버에 공격 대상으로 정해 달라고 요청한다. */
+	void SelectAttackTargetUnderCursor();
+	/** 지금 공격 사거리 안의 캐릭터들. 목적지를 확정했으면 고스트(도착 위치) 기준, 아니면 캐릭터 기준. */
+	const TArray<TObjectPtr<ABaseCharacter>>& GetTargetsInAttackRange() const;
+	/** 대상 쪽으로 몸을 돌린다. (높이 차이는 무시하고 평면 방향만, 즉시) */
+	void FaceTarget(const AActor* Target);
+
+	// RPC
 	/** 빙의가 풀릴 때 조종하던 클라이언트에서 표시들을 정리한다. */
 	UFUNCTION(Reliable, Client)
 	void ClientOnUnpossessed();
-
-	// 공격 RPC
-public:
 	/** (서버) 공격할 대상을 정한다. 조종하는 클라이언트에서 호출한다. nullptr이면 대상을 지운다. */
 	UFUNCTION(Reliable, Server)
 	void ServerSetAttackTarget(ABaseCharacter* NewTarget);
 	/** (서버에서 호출 → 모든 머신에서 실행) 대상 쪽으로 몸을 돌리고 공격 몽타주를 재생한다. Target이 nullptr이면 방향은 그대로 둔다. */
 	UFUNCTION(Reliable, NetMulticast)
 	void MulticastPlayAttack(ABaseCharacter* Target);
-	/** (서버) 서버에 정해 둔 AttackTarget을 공격한다. 모든 플레이어 화면에 공격 애니메이션이 재생된다. 조종하는 클라이언트에서 호출한다. */
-	UFUNCTION(Reliable, Server)
-	void ServerAttack();
 
 	// 변수
 private:

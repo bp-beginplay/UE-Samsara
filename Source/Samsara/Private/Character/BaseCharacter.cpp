@@ -16,7 +16,6 @@
 #include "Component/MoveRangeComponent.h"
 #include "Component/RangeComponent.h"
 #include "Data/Input/DA_ArhatInput.h"
-#include "LogTest.h"
 #include "PlayerController/PvPPlayerController.h"
 
 // ======================================================================
@@ -143,51 +142,19 @@ void ABaseCharacter::OnConfirmDestination()
 	{
 		// 목적지가 정해지면 이동 가능 범위 표시는 숨긴다.
 		MoveRangeComponent->Hide();
-		LOG_TEXT("Success ConfirmDestination");
 	}
 	else
 	{
-		// 목적지를 고르는 중이 아니면 커서 아래 캐릭터를 공격 대상으로 정한다.
-		// 목적지를 확정했으면 고스트(도착 위치) 사거리, 아니면 지금 위치 사거리 안에 있어야 한다.
-		const APvPPlayerController* PC = Cast<APvPPlayerController>(GetController());
-		if (!PC)
-		{
-			return;
-		}
-		const FHitResult Hit = PC->GetUnderCursorHit();
-		if (ABaseCharacter* Target = Cast<ABaseCharacter>(Hit.GetActor()))
-		{
-			TArray<TObjectPtr<ABaseCharacter>> TargetsInRange;
-			AGhostActor* GhostActor = MoveComponent->GetGhostActor();
-			if (IsValid(GhostActor))
-			{
-				TargetsInRange = GhostActor->GetTargetsInRange();
-			}
-			else
-			{
-				TargetsInRange = RangeComponent->GetTargetsInRange();
-			}
-			if (TargetsInRange.Contains(Target))
-			{
-				ServerSetAttackTarget(Target);
-			}
-			else
-			{
-				LOG_TEXT("Fail Target");
-			}
-		}
+		// 목적지를 고르는 중이 아니면(이미 확정했거나 고르지 않음) 공격 대상을 고른다.
+		SelectAttackTargetUnderCursor();
 	}
 }
 
 void ABaseCharacter::OnStartMove()
 {
-	if (MoveComponent->StartMove())
+	// 확정한 목적지가 있으면 이동하고(도착하면 MoveComponent가 공격), 없으면 제자리에서 공격한다.
+	if (!MoveComponent->StartMove())
 	{
-		LOG_TEXT("Success StartMove");
-	}
-	else
-	{
-		// 확정한 목적지가 없으면 제자리에서 공격한다.
 		ServerAttack();
 	}
 }
@@ -217,6 +184,45 @@ void ABaseCharacter::UpdateCameraOffset(float DeltaTime)
 }
 
 // ======================================================================
+// 공격
+// ======================================================================
+
+void ABaseCharacter::SelectAttackTargetUnderCursor()
+{
+	const APvPPlayerController* PC = Cast<APvPPlayerController>(GetController());
+	if (!PC)
+	{
+		return;
+	}
+
+	ABaseCharacter* Target = Cast<ABaseCharacter>(PC->GetUnderCursorHit().GetActor());
+	if (Target && GetTargetsInAttackRange().Contains(Target))
+	{
+		ServerSetAttackTarget(Target);
+	}
+}
+
+const TArray<TObjectPtr<ABaseCharacter>>& ABaseCharacter::GetTargetsInAttackRange() const
+{
+	const AGhostActor* GhostActor = MoveComponent->GetGhostActor();
+	return IsValid(GhostActor) ? GhostActor->GetTargetsInRange() : RangeComponent->GetTargetsInRange();
+}
+
+void ABaseCharacter::FaceTarget(const AActor* Target)
+{
+	if (!IsValid(Target))
+	{
+		return;
+	}
+
+	const FVector Direction = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+	if (!Direction.IsNearlyZero())
+	{
+		SetActorRotation(Direction.Rotation());
+	}
+}
+
+// ======================================================================
 // RPC
 // ======================================================================
 
@@ -233,15 +239,7 @@ void ABaseCharacter::ServerSetAttackTarget_Implementation(ABaseCharacter* NewTar
 
 void ABaseCharacter::MulticastPlayAttack_Implementation(ABaseCharacter* Target)
 {
-	// 대상 쪽으로 몸을 돌린다. (높이 차이는 무시하고 평면 방향만)
-	if (IsValid(Target))
-	{
-		const FVector Direction = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
-		if (!Direction.IsNearlyZero())
-		{
-			SetActorRotation(Direction.Rotation());
-		}
-	}
+	FaceTarget(Target);
 
 	if (AttackMontage)
 	{

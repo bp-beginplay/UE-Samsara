@@ -218,6 +218,10 @@ C++ 코드는 `Source/Samsara`에 있다. 헤더는 `Public`, 구현은 `Private
   - 바인딩하지 않던 WASD 카메라 입력 `IA_CameraMoveKeys` (S 키와 겹쳐서 빼 두었던 것)
   - 쓰지 않는 함수: `BindTriggeredAndCompleted`, `GetPathPoints`, `GetGhostMesh`, `IsEnemy`, `GetTargetsInRange`, `DisableDetection`, `GhostAnimInstance`의 빈 함수와 변수
 - 모든 헤더의 클래스, 변수, 함수에 설명 주석 추가
+- `BaseCharacter` 공격 코드 정리
+  - 좌클릭의 대상 고르기를 `SelectAttackTargetUnderCursor`, 사거리 목록 고르기를 `GetTargetsInAttackRange`, 대상 바라보기를 `FaceTarget`으로 분리
+  - 접근 지정자: MoveComponent가 부르는 `ServerAttack`만 public, `ServerSetAttackTarget`, `MulticastPlayAttack`은 private
+  - 테스트용 로그(`Success ConfirmDestination`, `Success StartMove`, `Fail Target`) 제거
 
 **문서**
 - 붙어 선 캐릭터에서 출발하면 경로가 꺾이는 문제의 원인과 해결 방향 정리 (아직 구현 안 함) `7498c88`
@@ -559,14 +563,15 @@ S를 누르면 이번 턴에 **실제로 갈 수 있는 범위**를 바닥에 �
 
 ```
 조종하는 클라이언트
-  좌클릭 → 커서 아래 캐릭터가 사거리(고스트가 있으면 고스트 사거리) 안에 있으면
+  좌클릭 → SelectAttackTargetUnderCursor
+           커서 아래 캐릭터가 GetTargetsInAttackRange(고스트가 있으면 고스트 사거리) 안에 있으면
            ServerSetAttackTarget(Target)        → 서버의 AttackTarget 설정
   Space  → 확정한 목적지가 있으면 이동, 도착하면(MoveComponent::FinishMove) ServerAttack()
            확정한 목적지가 없으면 바로 ServerAttack()
 서버
   ServerAttack → AttackTarget이 유효하면 MulticastPlayAttack(AttackTarget)
 모든 머신 (서버 + 모든 클라이언트)
-  MulticastPlayAttack → 대상 쪽으로 몸을 돌리고(SetActorRotation, 즉시) AttackMontage 재생
+  MulticastPlayAttack → FaceTarget으로 대상 쪽으로 몸을 돌리고(즉시) AttackMontage 재생
 ```
 
 ### 왜 이렇게 나눴나
